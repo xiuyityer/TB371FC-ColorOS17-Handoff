@@ -1,0 +1,2 @@
+  LD      vmlinux
+  OBJCOPY arch/arm64/boot/Image

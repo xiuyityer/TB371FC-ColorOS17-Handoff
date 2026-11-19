@@ -1,0 +1,147 @@
+#!/system/bin/sh
+# User-invoked controller for the C16 allowlist on TB371FC C17.
+set -eu
+umask 077
+[ "$(id -u)" = 0 ] || exit 20
+[ "$(getprop ro.build.version.sdk)" = 37 ] || exit 20
+[ "$(getprop ro.product.board)" = spinel ] || exit 21
+[ "$(getprop sys.boot_completed)" = 1 ] || exit 22
+state=/data/misc/c17-ai-controls
+packages=${C17_AI_PACKAGES:-/system_ext/etc/c17-port/ai-packages.txt}
+[ ! -L "$state" ] || exit 23
+[ -r "$packages" ] || exit 23
+mkdir -p "$state"
+chmod 0700 "$state"
+
+state_of() {
+    local query enabled
+    query=$(mktemp "$state/query.XXXXXX") || return 1
+    # Avoid Android external printf's single-argument limit for large dumps.
+    if ! dumpsys package "$1" > "$query" 2>&1; then
+        rm -f "$query"; return 1
+    fi
+    if enabled=$(awk '
+      /User 0:.* enabled=/ {
+        count++
+        for (i=1;i<=NF;i++) if ($i ~ /^enabled=[0-4]$/) {value=substr($i,9); fields++}
+      }
+      END {if (count==1 && fields==1) print value; else exit 1}
+    ' "$query"); then
+        rm -f "$query"
+        printf '%s\n' "$enabled"
+        return 0
+    fi
+    # Absence must be explicit; malformed/truncated/Binder failures are errors.
+    if grep -Fq "Unable to find package: $1" "$query"; then
+        rm -f "$query"; return 0
+    fi
+    rm -f "$query"
+    return 1
+}
+allowed() {
+    case "$1" in
+      com.heytap.speechassist|com.oplus.aimemory|com.coloros.translate|com.coloros.translate.engine|com.oplus.aiunit|com.aiunit.aon|com.oplus.obrain) return 0;;
+      *) return 1;;
+    esac
+}
+run_pm() {
+    local result rc=0
+    result=$(pm "$@" 2>&1) || rc=$?
+    printf '%s\n' "$result"
+    return "$rc"
+}
+validate_backup() {
+    [ -f "$state/state.txt" ] || return 0
+    local pkg old extra seen=' '
+    while read -r pkg old extra; do
+        [ -n "$pkg" ] && [ -z "$extra" ] || return 1
+        allowed "$pkg" || return 1
+        case "$old" in 0|1) ;; *) return 1;; esac
+        case "$seen" in *" $pkg "*) return 1;; esac
+        seen="$seen$pkg "
+    done < "$state/state.txt"
+}
+acquire_lock() {
+    exec 9>"$state/operation.lock"
+    flock -n 9 9>&9 || { echo OPERATION_BUSY; exit 30; }
+    trap 'rm -f "$state/state.next"' EXIT
+}
+restore_locked() {
+    local pkg old current desired rc=0
+    validate_backup || { echo INVALID_BACKUP; return 25; }
+    [ -f "$state/state.txt" ] || return 0
+    : > "$state/state.next" || return 26
+    while read -r pkg old; do
+        if ! current=$(state_of "$pkg"); then
+            printf '%s %s\n' "$pkg" "$old" >> "$state/state.next" || return 26
+            echo "RESTORE_QUERY_FAILED:$pkg"; rc=26; continue
+        fi
+        if [ "$current" != 3 ]; then
+            echo "USER_STATE_PRESERVED:$pkg:$current"; continue
+        fi
+        if [ "$old" = 0 ]; then desired=default-state; else desired=enable; fi
+        if run_pm "$desired" --user 0 "$pkg"; then
+            current=$(state_of "$pkg") || current=unknown
+        else
+            current=unknown
+        fi
+        if [ "$current" = "$old" ]; then
+            echo "RESTORED:$pkg:$old"
+        else
+            printf '%s %s\n' "$pkg" "$old" >> "$state/state.next" || return 26
+            echo "RESTORE_PENDING:$pkg:$old"; rc=26
+        fi
+    done < "$state/state.txt"
+    mv "$state/state.next" "$state/state.txt" || return 26
+    return "$rc"
+}
+
+apply_locked() {
+    fail() {
+        local code=$1
+        echo "AI_APPLY_FAILED:$code"
+        restore_locked || echo AI_ROLLBACK_PENDING
+        exit "$code"
+    }
+    trap 'fail 31' HUP INT TERM
+    validate_backup || { echo INVALID_BACKUP; exit 25; }
+    # Validate all names before making the first package-state change.
+    while IFS= read -r pkg; do
+        [ -n "$pkg" ] || continue
+        allowed "$pkg" || { echo "INVALID_PACKAGE:$pkg"; return 23; }
+    done < "$packages"
+    while IFS= read -r pkg; do
+        [ -n "$pkg" ] || continue
+        # Do not disable again if a user re-enabled a module-owned package.
+        if grep -q "^$pkg " "$state/state.txt" 2>/dev/null; then
+            echo "ALREADY_RECORDED:$pkg"; continue
+        fi
+        old=$(state_of "$pkg") || fail 24
+        [ -n "$old" ] || { echo "NOT_INSTALLED:$pkg"; continue; }
+        case "$old" in 0|1) ;; 2|3|4) echo "ALREADY_DISABLED:$pkg:$old"; continue;; *) fail 24;; esac
+        : > "$state/state.next" || fail 26
+        if [ -f "$state/state.txt" ]; then cat "$state/state.txt" > "$state/state.next" || fail 26; fi
+        printf '%s %s\n' "$pkg" "$old" >> "$state/state.next" || fail 26
+        mv "$state/state.next" "$state/state.txt" || fail 26
+        run_pm disable-user --user 0 "$pkg" || fail 24
+        current=$(state_of "$pkg") || fail 24
+        [ "$current" = 3 ] || fail 24
+    done < "$packages"
+    trap - HUP INT TERM
+    echo AI_TRANSACTION_APPLIED
+}
+
+case "${1:-status}" in
+    status)
+        acquire_lock
+        while IFS= read -r pkg; do
+            [ -n "$pkg" ] || continue
+            allowed "$pkg" || exit 23
+            current=$(state_of "$pkg")
+            printf '%s %s\n' "$pkg" "${current:-absent}"
+        done < "$packages"
+        ;;
+    disable) acquire_lock; apply_locked;;
+    restore) acquire_lock; restore_locked;;
+    *) echo 'Usage: c17-ai-controls status|disable|restore' >&2; exit 2;;
+esac

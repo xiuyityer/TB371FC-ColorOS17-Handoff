@@ -1,0 +1,6 @@
+输入 WIPE 同意并开始刷机，其他输入取消 [默认取消] > 正在校验镜像和刷写清单…
+完成 1/390  flash recovery_a
+完成 388/390  erase userdata
+完成 389/390  erase metadata
+完成 390/390  set_active a
+镜像刷入和用户数据清除已完成，请在平板上完成首次设置。

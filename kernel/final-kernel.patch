@@ -1,0 +1,1320 @@
+diff --git a/arch/arm64/include/asm/lse.h b/arch/arm64/include/asm/lse.h
+index 90894d8..7a8ab01 100644
+--- a/arch/arm64/include/asm/lse.h
++++ b/arch/arm64/include/asm/lse.h
+@@ -20,7 +20,7 @@
+ 
+ #else	/* __ASSEMBLER__ */
+ 
+-#ifdef CONFIG_LTO_CLANG
++#if defined(CONFIG_LTO_CLANG) || defined(__clang__)
+ #define __LSE_PREAMBLE	".arch_extension lse\n"
+ #else
+ __asm__(".arch_extension	lse");
+diff --git a/drivers/rmnet/perf/rmnet_perf_opt.c b/drivers/rmnet/perf/rmnet_perf_opt.c
+index d6b21f7..bd95f57 100644
+--- a/drivers/rmnet/perf/rmnet_perf_opt.c
++++ b/drivers/rmnet/perf/rmnet_perf_opt.c
+@@ -712,7 +712,7 @@ void rmnet_perf_opt_insert_pkt_in_flow(
+ 		flow_node->next_seq += payload_len;
+ }
+ void
+-rmnet_perf_free_hash_table()
++rmnet_perf_free_hash_table(void)
+ {
+ 	int i;
+ 	struct rmnet_perf_opt_flow_node *flow_node;
+diff --git a/drivers/staging/qca-wifi-host-cmn/hif/src/ce/ce_service_srng.c b/drivers/staging/qca-wifi-host-cmn/hif/src/ce/ce_service_srng.c
+index 676fd93..f3913a9 100644
+--- a/drivers/staging/qca-wifi-host-cmn/hif/src/ce/ce_service_srng.c
++++ b/drivers/staging/qca-wifi-host-cmn/hif/src/ce/ce_service_srng.c
+@@ -1013,7 +1013,7 @@ static struct ce_ops ce_service_srng = {
+ #endif
+ };
+ 
+-struct ce_ops *ce_services_srng()
++struct ce_ops *ce_services_srng(void)
+ {
+ 	return &ce_service_srng;
+ }
+diff --git a/drivers/staging/qca-wifi-host-cmn/target_if/core/src/target_if_main.c b/drivers/staging/qca-wifi-host-cmn/target_if/core/src/target_if_main.c
+index ffe980b..9aa1f35 100644
+--- a/drivers/staging/qca-wifi-host-cmn/target_if/core/src/target_if_main.c
++++ b/drivers/staging/qca-wifi-host-cmn/target_if/core/src/target_if_main.c
+@@ -95,7 +95,7 @@
+ 
+ static struct target_if_ctx *g_target_if_ctx;
+ 
+-struct target_if_ctx *target_if_get_ctx()
++struct target_if_ctx *target_if_get_ctx(void)
+ {
+ 	return g_target_if_ctx;
+ }
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index d2b881e..17e030f 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -16,6 +16,7 @@
+ #include <linux/rbtree_latch.h>
+ #include <linux/numa.h>
+ #include <linux/wait.h>
++#include <linux/poll.h>
+ 
+ struct bpf_verifier_env;
+ struct perf_event;
+@@ -56,6 +57,9 @@ struct bpf_map_ops {
+ 	int (*map_check_btf)(const struct bpf_map *map,
+ 			     const struct btf_type *key_type,
+ 			     const struct btf_type *value_type);
++	int (*map_mmap)(struct bpf_map *map, struct vm_area_struct *vma);
++	__poll_t (*map_poll)(struct bpf_map *map, struct file *filp,
++			     poll_table *wait);
+ };
+ 
+ struct bpf_map {
+@@ -159,6 +163,8 @@ enum bpf_arg_type {
+ 
+ 	ARG_PTR_TO_CTX,		/* pointer to context */
+ 	ARG_ANYTHING,		/* any (initialized) argument is ok */
++	ARG_CONST_RINGBUF_SIZE,
++	ARG_PTR_TO_RINGBUF_RECORD,
+ };
+ 
+ /* type of values returned from helper functions */
+@@ -167,6 +173,7 @@ enum bpf_return_type {
+ 	RET_VOID,			/* function doesn't return anything */
+ 	RET_PTR_TO_MAP_VALUE,		/* returns a pointer to map elem value */
+ 	RET_PTR_TO_MAP_VALUE_OR_NULL,	/* returns a pointer to map elem value or NULL */
++	RET_PTR_TO_RINGBUF_RECORD_OR_NULL,
+ };
+ 
+ /* eBPF function prototype used by verifier to allow BPF_CALLs from eBPF programs
+@@ -217,6 +224,8 @@ enum bpf_reg_type {
+ 	PTR_TO_PACKET_META,	 /* skb->data - meta_len */
+ 	PTR_TO_PACKET,		 /* reg points to skb->data */
+ 	PTR_TO_PACKET_END,	 /* skb->data + headlen */
++	PTR_TO_RINGBUF_RECORD,
++	PTR_TO_RINGBUF_RECORD_OR_NULL,
+ };
+ 
+ /* The information passed from prog-specific *_is_valid_access
+@@ -823,6 +832,11 @@ static inline int bpf_fd_reuseport_array_update_elem(struct bpf_map *map,
+ 
+ /* verifier prototypes for helper functions called from eBPF programs */
+ extern const struct bpf_func_proto bpf_map_lookup_elem_proto;
++extern const struct bpf_func_proto bpf_ringbuf_output_proto;
++extern const struct bpf_func_proto bpf_ringbuf_query_proto;
++extern const struct bpf_func_proto bpf_ringbuf_reserve_proto;
++extern const struct bpf_func_proto bpf_ringbuf_submit_proto;
++extern const struct bpf_func_proto bpf_ringbuf_discard_proto;
+ extern const struct bpf_func_proto bpf_map_update_elem_proto;
+ extern const struct bpf_func_proto bpf_map_delete_elem_proto;
+ 
+diff --git a/include/linux/bpf_types.h b/include/linux/bpf_types.h
+index cd26c09..f37425a 100644
+--- a/include/linux/bpf_types.h
++++ b/include/linux/bpf_types.h
+@@ -34,6 +34,7 @@ BPF_PROG_TYPE(BPF_PROG_TYPE_SK_REUSEPORT, sk_reuseport)
+ #endif
+ 
+ BPF_MAP_TYPE(BPF_MAP_TYPE_ARRAY, array_map_ops)
++BPF_MAP_TYPE(BPF_MAP_TYPE_RINGBUF, ringbuf_map_ops)
+ BPF_MAP_TYPE(BPF_MAP_TYPE_PERCPU_ARRAY, percpu_array_map_ops)
+ BPF_MAP_TYPE(BPF_MAP_TYPE_PROG_ARRAY, prog_array_map_ops)
+ BPF_MAP_TYPE(BPF_MAP_TYPE_PERF_EVENT_ARRAY, perf_event_array_map_ops)
+diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
+index 4acd06c..2926acd 100644
+--- a/include/linux/bpf_verifier.h
++++ b/include/linux/bpf_verifier.h
+@@ -47,6 +47,9 @@ struct bpf_reg_state {
+ 		/* valid when type == PTR_TO_PACKET */
+ 		u16 range;
+ 
++		/* Valid for ringbuf record pointers. */
++		u32 ringbuf_size;
++
+ 		/* valid when type == CONST_PTR_TO_MAP | PTR_TO_MAP_VALUE |
+ 		 *   PTR_TO_MAP_VALUE_OR_NULL
+ 		 */
+@@ -139,6 +142,9 @@ struct bpf_verifier_state {
+ 	/* call stack tracking */
+ 	struct bpf_func_state *frame[MAX_CALL_FRAMES];
+ 	u32 curframe;
++	/* Ring reservations belong to the whole execution path. */
++	u32 *ringbuf_refs;
++	u32 ringbuf_ref_count;
+ 	bool speculative;
+ };
+ 
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 17cff15..4e7e2fd 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -127,6 +127,8 @@ enum bpf_map_type {
+ 	BPF_MAP_TYPE_SOCKHASH,
+ 	BPF_MAP_TYPE_CGROUP_STORAGE,
+ 	BPF_MAP_TYPE_REUSEPORT_SOCKARRAY,
++	/* Keep the Linux UAPI number, including unimplemented types. */
++	BPF_MAP_TYPE_RINGBUF = 27,
+ };
+ 
+ enum bpf_prog_type {
+@@ -2296,7 +2298,16 @@ union bpf_attr {
+ 	FN(get_netns_cookie),		\
+ 	FN(get_current_ancestor_cgroup_id),	\
+ 	FN(sk_assign),			\
+-	FN(ktime_get_boot_ns),
++	FN(ktime_get_boot_ns),	\
++	FN(seq_printf),	\
++	FN(seq_write),	\
++	FN(sk_cgroup_id),	\
++	FN(sk_ancestor_cgroup_id),	\
++	FN(ringbuf_output),	\
++	FN(ringbuf_reserve),	\
++	FN(ringbuf_submit),	\
++	FN(ringbuf_discard),	\
++	FN(ringbuf_query),
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+@@ -2310,6 +2321,25 @@ enum bpf_func_id {
+ 
+ /* All flags used by eBPF helper functions, placed here. */
+ 
++enum {
++	BPF_RB_NO_WAKEUP		= (1ULL << 0),
++	BPF_RB_FORCE_WAKEUP	= (1ULL << 1),
++};
++
++enum {
++	BPF_RB_AVAIL_DATA = 0,
++	BPF_RB_RING_SIZE = 1,
++	BPF_RB_CONS_POS = 2,
++	BPF_RB_PROD_POS = 3,
++};
++
++enum {
++	BPF_RINGBUF_BUSY_BIT	= (1U << 31),
++	BPF_RINGBUF_DISCARD_BIT	= (1U << 30),
++	BPF_RINGBUF_HDR_SZ	= 8,
++};
++
++
+ /* BPF_FUNC_skb_store_bytes flags. */
+ #define BPF_F_RECOMPUTE_CSUM		(1ULL << 0)
+ #define BPF_F_INVALIDATE_HASH		(1ULL << 1)
+diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
+index ffc39a7..0f55ef9 100644
+--- a/kernel/bpf/Makefile
++++ b/kernel/bpf/Makefile
+@@ -2,7 +2,7 @@
+ obj-y := core.o
+ CFLAGS_core.o += $(call cc-disable-warning, override-init)
+ 
+-obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o tnum.o
++obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o tnum.o ringbuf.o
+ obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o bpf_lru_list.o lpm_trie.o map_in_map.o
+ obj-$(CONFIG_BPF_SYSCALL) += local_storage.o
+ obj-$(CONFIG_BPF_SYSCALL) += disasm.o
+diff --git a/kernel/bpf/ringbuf.c b/kernel/bpf/ringbuf.c
+new file mode 100644
+index 0000000..1f3f1b3
+--- /dev/null
++++ b/kernel/bpf/ringbuf.c
+@@ -0,0 +1,532 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/* Map and userspace consumer ABI adapted from the Android 5.10 ring buffer
++ * implementation. The copy-based output helper does not expose allocated
++ * record pointers. Zero-copy helpers require separate verifier support.
++ */
++#include <linux/bpf.h>
++#include <linux/capability.h>
++#include <linux/err.h>
++#include <linux/filter.h>
++#include <linux/irq_work.h>
++#include <linux/slab.h>
++#include <linux/mm.h>
++#include <linux/vmalloc.h>
++#include <linux/wait.h>
++#include <linux/poll.h>
++#include <linux/kmemleak.h>
++
++#define RINGBUF_CREATE_FLAG_MASK (BPF_F_NUMA_NODE)
++
++/* non-mmap()'able part of bpf_ringbuf (everything up to consumer page) */
++#define RINGBUF_PGOFF \
++	(offsetof(struct bpf_ringbuf, consumer_pos) >> PAGE_SHIFT)
++/* consumer page and producer page */
++#define RINGBUF_POS_PAGES 2
++#define RINGBUF_MAX_RECORD_SZ (UINT_MAX / 4)
++
++/* Maximum size of ring buffer area is limited by 32-bit page offset within
++ * record header, counted in pages. Reserve 8 bits for extensibility, and take
++ * into account few extra pages for consumer/producer pages and
++ * non-mmap()'able parts. This gives 64GB limit, which seems plenty for single
++ * ring buffer.
++ */
++#define RINGBUF_MAX_DATA_SZ \
++	(((1ULL << 24) - RINGBUF_POS_PAGES - RINGBUF_PGOFF) * PAGE_SIZE)
++
++struct bpf_ringbuf {
++	wait_queue_head_t waitq;
++	struct irq_work work;
++	u64 mask;
++	struct page **pages;
++	int nr_pages;
++	spinlock_t spinlock ____cacheline_aligned_in_smp;
++	/* Consumer and producer counters are put into separate pages to allow
++	 * mapping consumer page as r/w, but restrict producer page to r/o.
++	 * This protects producer position from being modified by user-space
++	 * application and ruining in-kernel position tracking.
++	 * Note that the pending counter is placed in the same
++	 * page as the producer, so that it shares the same cache line.
++	 */
++	unsigned long consumer_pos __aligned(PAGE_SIZE);
++	unsigned long producer_pos __aligned(PAGE_SIZE);
++	unsigned long pending_pos;
++	char data[] __aligned(PAGE_SIZE);
++};
++
++struct bpf_ringbuf_map {
++	struct bpf_map map;
++	struct bpf_ringbuf *rb;
++};
++
++/* 8-byte ring buffer record header structure */
++struct bpf_ringbuf_hdr {
++	u32 len;
++	u32 pg_off;
++};
++
++static struct bpf_ringbuf *bpf_ringbuf_area_alloc(size_t data_sz, int numa_node)
++{
++	const gfp_t flags = GFP_KERNEL | __GFP_RETRY_MAYFAIL | __GFP_NOWARN |
++			    __GFP_ZERO;
++	int nr_meta_pages = RINGBUF_PGOFF + RINGBUF_POS_PAGES;
++	int nr_data_pages = data_sz >> PAGE_SHIFT;
++	int nr_pages = nr_meta_pages + nr_data_pages;
++	struct page **pages, *page;
++	struct bpf_ringbuf *rb;
++	size_t array_size;
++	int i;
++
++	/* Each data page is mapped twice to allow "virtual"
++	 * continuous read of samples wrapping around the end of ring
++	 * buffer area:
++	 * ------------------------------------------------------
++	 * | meta pages |  real data pages  |  same data pages  |
++	 * ------------------------------------------------------
++	 * |            | 1 2 3 4 5 6 7 8 9 | 1 2 3 4 5 6 7 8 9 |
++	 * ------------------------------------------------------
++	 * |            | TA             DA | TA             DA |
++	 * ------------------------------------------------------
++	 *                               ^^^^^^^
++	 *                                  |
++	 * Here, no need to worry about special handling of wrapped-around
++	 * data due to double-mapped data pages. This works both in kernel and
++	 * when mmap()'ed in user-space, simplifying both kernel and
++	 * user-space implementations significantly.
++	 */
++	array_size = (nr_meta_pages + 2 * nr_data_pages) * sizeof(*pages);
++	if (array_size > PAGE_SIZE)
++		pages = vmalloc_node(array_size, numa_node);
++	else
++		pages = kmalloc_node(array_size, flags, numa_node);
++	if (!pages)
++		return NULL;
++
++	for (i = 0; i < nr_pages; i++) {
++		page = alloc_pages_node(numa_node, flags, 0);
++		if (!page) {
++			nr_pages = i;
++			goto err_free_pages;
++		}
++		pages[i] = page;
++		if (i >= nr_meta_pages)
++			pages[nr_data_pages + i] = page;
++	}
++
++	rb = vmap(pages, nr_meta_pages + 2 * nr_data_pages,
++		  VM_MAP | VM_USERMAP, PAGE_KERNEL);
++	if (rb) {
++		kmemleak_not_leak(pages);
++		rb->pages = pages;
++		rb->nr_pages = nr_pages;
++		return rb;
++	}
++
++err_free_pages:
++	for (i = 0; i < nr_pages; i++)
++		__free_page(pages[i]);
++	kvfree(pages);
++	return NULL;
++}
++
++static void bpf_ringbuf_notify(struct irq_work *work)
++{
++	struct bpf_ringbuf *rb = container_of(work, struct bpf_ringbuf, work);
++
++	wake_up_all(&rb->waitq);
++}
++
++static struct bpf_ringbuf *bpf_ringbuf_alloc(size_t data_sz, int numa_node)
++{
++	struct bpf_ringbuf *rb;
++
++	rb = bpf_ringbuf_area_alloc(data_sz, numa_node);
++	if (!rb)
++		return ERR_PTR(-ENOMEM);
++
++	spin_lock_init(&rb->spinlock);
++	init_waitqueue_head(&rb->waitq);
++	init_irq_work(&rb->work, bpf_ringbuf_notify);
++
++	rb->mask = data_sz - 1;
++	rb->consumer_pos = 0;
++	rb->producer_pos = 0;
++	rb->pending_pos = 0;
++
++	return rb;
++}
++
++static struct bpf_map *ringbuf_map_alloc(union bpf_attr *attr)
++{
++	struct bpf_ringbuf_map *rb_map;
++	u32 data_pages, metadata_pages, charged_pages;
++	size_t page_array_bytes;
++	int err;
++
++	if (!capable(CAP_SYS_ADMIN))
++		return ERR_PTR(-EPERM);
++
++	if (attr->map_flags & ~RINGBUF_CREATE_FLAG_MASK)
++		return ERR_PTR(-EINVAL);
++
++	if (attr->key_size || attr->value_size ||
++	    !is_power_of_2(attr->max_entries) ||
++	    !PAGE_ALIGNED(attr->max_entries))
++		return ERR_PTR(-EINVAL);
++
++#ifdef CONFIG_64BIT
++	/* on 32-bit arch, it's impossible to overflow record's hdr->pgoff */
++	if (attr->max_entries > RINGBUF_MAX_DATA_SZ)
++		return ERR_PTR(-E2BIG);
++#endif
++
++	data_pages = attr->max_entries >> PAGE_SHIFT;
++	metadata_pages = RINGBUF_PGOFF + RINGBUF_POS_PAGES;
++	page_array_bytes = (metadata_pages + 2 * data_pages) *
++			   sizeof(struct page *);
++	/* The aliases do not allocate pages, but their descriptors do. */
++	charged_pages = metadata_pages + data_pages +
++			DIV_ROUND_UP(page_array_bytes + sizeof(*rb_map),
++				     PAGE_SIZE);
++	err = bpf_map_precharge_memlock(charged_pages);
++	if (err)
++		return ERR_PTR(err);
++
++	rb_map = kzalloc(sizeof(*rb_map), GFP_USER);
++	if (!rb_map)
++		return ERR_PTR(-ENOMEM);
++
++	bpf_map_init_from_attr(&rb_map->map, attr);
++	rb_map->map.pages = charged_pages;
++
++	rb_map->rb = bpf_ringbuf_alloc(attr->max_entries, rb_map->map.numa_node);
++	if (IS_ERR(rb_map->rb)) {
++		err = PTR_ERR(rb_map->rb);
++		kfree(rb_map);
++		return ERR_PTR(err);
++	}
++
++	return &rb_map->map;
++}
++
++static void bpf_ringbuf_free(struct bpf_ringbuf *rb)
++{
++	/* copy pages pointer and nr_pages to local variable, as we are going
++	 * to unmap rb itself with vunmap() below
++	 */
++	struct page **pages = rb->pages;
++	int i, nr_pages = rb->nr_pages;
++
++	irq_work_sync(&rb->work);
++
++	vunmap(rb);
++	for (i = 0; i < nr_pages; i++)
++		__free_page(pages[i]);
++	kvfree(pages);
++}
++
++static void ringbuf_map_free(struct bpf_map *map)
++{
++	struct bpf_ringbuf_map *rb_map;
++
++	rb_map = container_of(map, struct bpf_ringbuf_map, map);
++	bpf_ringbuf_free(rb_map->rb);
++	kfree(rb_map);
++}
++
++static void *ringbuf_map_lookup_elem(struct bpf_map *map, void *key)
++{
++	return NULL;
++}
++
++static int ringbuf_map_update_elem(struct bpf_map *map, void *key, void *value,
++				   u64 flags)
++{
++	return -ENOTSUPP;
++}
++
++static int ringbuf_map_delete_elem(struct bpf_map *map, void *key)
++{
++	return -ENOTSUPP;
++}
++
++static int ringbuf_map_get_next_key(struct bpf_map *map, void *key,
++				    void *next_key)
++{
++	return -ENOTSUPP;
++}
++
++static int ringbuf_map_mmap(struct bpf_map *map, struct vm_area_struct *vma)
++{
++	struct bpf_ringbuf_map *rb_map;
++	unsigned long map_pages, requested_pages;
++
++	rb_map = container_of(map, struct bpf_ringbuf_map, map);
++	map_pages = RINGBUF_POS_PAGES +
++		    2 * ((rb_map->rb->mask + 1) >> PAGE_SHIFT);
++	requested_pages = (vma->vm_end - vma->vm_start) >> PAGE_SHIFT;
++	if (vma->vm_pgoff >= map_pages ||
++	    requested_pages > map_pages - vma->vm_pgoff)
++		return -EINVAL;
++
++	if (vma->vm_flags & VM_WRITE) {
++		/* allow writable mapping for the consumer_pos only */
++		if (vma->vm_pgoff != 0 || vma->vm_end - vma->vm_start != PAGE_SIZE)
++			return -EPERM;
++	} else {
++		vma->vm_flags &= ~VM_MAYWRITE;
++	}
++	/* remap_vmalloc_range() checks size and offset constraints */
++	return remap_vmalloc_range(vma, rb_map->rb,
++				   vma->vm_pgoff + RINGBUF_PGOFF);
++}
++
++static unsigned long ringbuf_avail_data_sz(struct bpf_ringbuf *rb)
++{
++	unsigned long cons_pos, prod_pos;
++
++	cons_pos = smp_load_acquire(&rb->consumer_pos);
++	prod_pos = smp_load_acquire(&rb->producer_pos);
++	return prod_pos - cons_pos;
++}
++
++static __poll_t ringbuf_map_poll(struct bpf_map *map, struct file *filp,
++				 struct poll_table_struct *pts)
++{
++	struct bpf_ringbuf_map *rb_map;
++
++	rb_map = container_of(map, struct bpf_ringbuf_map, map);
++	poll_wait(filp, &rb_map->rb->waitq, pts);
++
++	if (ringbuf_avail_data_sz(rb_map->rb))
++		return EPOLLIN | EPOLLRDNORM;
++	return 0;
++}
++
++const struct bpf_map_ops ringbuf_map_ops = {
++	.map_alloc = ringbuf_map_alloc,
++	.map_free = ringbuf_map_free,
++	.map_mmap = ringbuf_map_mmap,
++	.map_poll = ringbuf_map_poll,
++	.map_lookup_elem = ringbuf_map_lookup_elem,
++	.map_update_elem = ringbuf_map_update_elem,
++	.map_delete_elem = ringbuf_map_delete_elem,
++	.map_get_next_key = ringbuf_map_get_next_key,
++};
++
++/* Given pointer to ring buffer record metadata and struct bpf_ringbuf itself,
++ * calculate offset from record metadata to ring buffer in pages, rounded
++ * down. This page offset is stored as part of record metadata and allows to
++ * restore struct bpf_ringbuf * from record pointer. This page offset is
++ * stored at offset 4 of record metadata header.
++ */
++static size_t bpf_ringbuf_rec_pg_off(struct bpf_ringbuf *rb,
++				     struct bpf_ringbuf_hdr *hdr)
++{
++	return ((void *)hdr - (void *)rb) >> PAGE_SHIFT;
++}
++
++/* Given pointer to ring buffer record header, restore pointer to struct
++ * bpf_ringbuf itself by using page offset stored at offset 4
++ */
++static struct bpf_ringbuf *
++bpf_ringbuf_restore_from_rec(struct bpf_ringbuf_hdr *hdr)
++{
++	unsigned long addr = (unsigned long)(void *)hdr;
++	unsigned long off = (unsigned long)hdr->pg_off << PAGE_SHIFT;
++
++	return (void*)((addr & PAGE_MASK) - off);
++}
++
++static void *__bpf_ringbuf_reserve(struct bpf_ringbuf *rb, u64 size)
++{
++	unsigned long cons_pos, prod_pos, new_prod_pos, pend_pos, flags;
++	struct bpf_ringbuf_hdr *hdr;
++	u32 len, pg_off, tmp_size, hdr_len;
++
++	if (unlikely(size > RINGBUF_MAX_RECORD_SZ))
++		return NULL;
++
++	len = round_up(size + BPF_RINGBUF_HDR_SZ, 8);
++	if (len > rb->mask + 1)
++		return NULL;
++
++	cons_pos = smp_load_acquire(&rb->consumer_pos);
++
++	if (in_nmi()) {
++		if (!spin_trylock_irqsave(&rb->spinlock, flags))
++			return NULL;
++	} else {
++		spin_lock_irqsave(&rb->spinlock, flags);
++	}
++
++	pend_pos = rb->pending_pos;
++	prod_pos = rb->producer_pos;
++	new_prod_pos = prod_pos + len;
++
++	while (prod_pos - pend_pos > 0) {
++		hdr = (void *)rb->data + (pend_pos & rb->mask);
++		hdr_len = READ_ONCE(hdr->len);
++		if (hdr_len & BPF_RINGBUF_BUSY_BIT)
++			break;
++		tmp_size = hdr_len & ~BPF_RINGBUF_DISCARD_BIT;
++		tmp_size = round_up(tmp_size + BPF_RINGBUF_HDR_SZ, 8);
++		pend_pos += tmp_size;
++	}
++	rb->pending_pos = pend_pos;
++
++	/* check for out of ringbuf space:
++	 * - by ensuring producer position doesn't advance more than
++	 *   (ringbuf_size - 1) ahead
++	 * - by ensuring oldest not yet committed record until newest
++	 *   record does not span more than (ringbuf_size - 1)
++	 */
++	if (new_prod_pos - cons_pos > rb->mask ||
++	    new_prod_pos - pend_pos > rb->mask) {
++		spin_unlock_irqrestore(&rb->spinlock, flags);
++		return NULL;
++	}
++
++	hdr = (void *)rb->data + (prod_pos & rb->mask);
++	pg_off = bpf_ringbuf_rec_pg_off(rb, hdr);
++	hdr->len = size | BPF_RINGBUF_BUSY_BIT;
++	hdr->pg_off = pg_off;
++
++	/* pairs with consumer's smp_load_acquire() */
++	smp_store_release(&rb->producer_pos, new_prod_pos);
++
++	spin_unlock_irqrestore(&rb->spinlock, flags);
++
++	return (void *)hdr + BPF_RINGBUF_HDR_SZ;
++}
++
++BPF_CALL_3(bpf_ringbuf_reserve, struct bpf_map *, map, u64, size, u64, flags)
++{
++	struct bpf_ringbuf_map *rb_map;
++	void *sample;
++
++	if (unlikely(flags))
++		return 0;
++
++	rb_map = container_of(map, struct bpf_ringbuf_map, map);
++	sample = __bpf_ringbuf_reserve(rb_map->rb, size);
++	if (sample)
++		memset(sample, 0, size);
++	return (unsigned long)sample;
++}
++
++const struct bpf_func_proto bpf_ringbuf_reserve_proto = {
++	.func		= bpf_ringbuf_reserve,
++	.ret_type	= RET_PTR_TO_RINGBUF_RECORD_OR_NULL,
++	.arg1_type	= ARG_CONST_MAP_PTR,
++	.arg2_type	= ARG_CONST_RINGBUF_SIZE,
++	.arg3_type	= ARG_ANYTHING,
++};
++
++static void bpf_ringbuf_commit(void *sample, u64 flags, bool discard)
++{
++	unsigned long rec_pos, cons_pos;
++	struct bpf_ringbuf_hdr *hdr;
++	struct bpf_ringbuf *rb;
++	u32 new_len;
++
++	hdr = sample - BPF_RINGBUF_HDR_SZ;
++	rb = bpf_ringbuf_restore_from_rec(hdr);
++	new_len = hdr->len ^ BPF_RINGBUF_BUSY_BIT;
++	if (discard)
++		new_len |= BPF_RINGBUF_DISCARD_BIT;
++
++	/* update record header with correct final size prefix */
++	xchg(&hdr->len, new_len);
++
++	/* if consumer caught up and is waiting for our record, notify about
++	 * new data availability
++	 */
++	rec_pos = (void *)hdr - (void *)rb->data;
++	cons_pos = smp_load_acquire(&rb->consumer_pos) & rb->mask;
++
++	if (flags & BPF_RB_FORCE_WAKEUP)
++		irq_work_queue(&rb->work);
++	else if (cons_pos == rec_pos && !(flags & BPF_RB_NO_WAKEUP))
++		irq_work_queue(&rb->work);
++}
++
++BPF_CALL_2(bpf_ringbuf_submit, void *, sample, u64, flags)
++{
++	bpf_ringbuf_commit(sample, flags, false /* discard */);
++	return 0;
++}
++
++const struct bpf_func_proto bpf_ringbuf_submit_proto = {
++	.func		= bpf_ringbuf_submit,
++	.ret_type	= RET_VOID,
++	.arg1_type	= ARG_PTR_TO_RINGBUF_RECORD,
++	.arg2_type	= ARG_ANYTHING,
++};
++
++BPF_CALL_2(bpf_ringbuf_discard, void *, sample, u64, flags)
++{
++	bpf_ringbuf_commit(sample, flags, true /* discard */);
++	return 0;
++}
++
++const struct bpf_func_proto bpf_ringbuf_discard_proto = {
++	.func		= bpf_ringbuf_discard,
++	.ret_type	= RET_VOID,
++	.arg1_type	= ARG_PTR_TO_RINGBUF_RECORD,
++	.arg2_type	= ARG_ANYTHING,
++};
++
++BPF_CALL_4(bpf_ringbuf_output, struct bpf_map *, map, void *, data, u64, size,
++	   u64, flags)
++{
++	struct bpf_ringbuf_map *rb_map;
++	void *rec;
++
++	if (unlikely(flags & ~(BPF_RB_NO_WAKEUP | BPF_RB_FORCE_WAKEUP)))
++		return -EINVAL;
++
++	rb_map = container_of(map, struct bpf_ringbuf_map, map);
++	rec = __bpf_ringbuf_reserve(rb_map->rb, size);
++	if (!rec)
++		return -EAGAIN;
++
++	memcpy(rec, data, size);
++	bpf_ringbuf_commit(rec, flags, false /* discard */);
++	return 0;
++}
++
++const struct bpf_func_proto bpf_ringbuf_output_proto = {
++	.func		= bpf_ringbuf_output,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_CONST_MAP_PTR,
++	.arg2_type	= ARG_PTR_TO_MEM,
++	.arg3_type	= ARG_CONST_SIZE_OR_ZERO,
++	.arg4_type	= ARG_ANYTHING,
++};
++
++BPF_CALL_2(bpf_ringbuf_query, struct bpf_map *, map, u64, flags)
++{
++	struct bpf_ringbuf *rb;
++
++	rb = container_of(map, struct bpf_ringbuf_map, map)->rb;
++
++	switch (flags) {
++	case BPF_RB_AVAIL_DATA:
++		return ringbuf_avail_data_sz(rb);
++	case BPF_RB_RING_SIZE:
++		return rb->mask + 1;
++	case BPF_RB_CONS_POS:
++		return smp_load_acquire(&rb->consumer_pos);
++	case BPF_RB_PROD_POS:
++		return smp_load_acquire(&rb->producer_pos);
++	default:
++		return 0;
++	}
++}
++
++const struct bpf_func_proto bpf_ringbuf_query_proto = {
++	.func		= bpf_ringbuf_query,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_CONST_MAP_PTR,
++	.arg2_type	= ARG_ANYTHING,
++};
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 02e5bdb..82a82af 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -18,6 +18,7 @@
+ #include <linux/sched/signal.h>
+ #include <linux/vmalloc.h>
+ #include <linux/mmzone.h>
++#include <linux/mm.h>
+ #include <linux/anon_inodes.h>
+ #include <linux/fdtable.h>
+ #include <linux/file.h>
+@@ -394,6 +395,34 @@ static ssize_t bpf_dummy_write(struct file *filp, const char __user *buf,
+ 	return -EINVAL;
+ }
+ 
++static int bpf_map_mmap(struct file *filp, struct vm_area_struct *vma)
++{
++	struct bpf_map *map = filp->private_data;
++
++	if (!map->ops->map_mmap)
++		return -ENODEV;
++	if (!(vma->vm_flags & VM_SHARED) || (vma->vm_flags & VM_EXEC))
++		return -EINVAL;
++
++	/* vm_file holds a reference to the map file while the VMA exists. */
++	vma->vm_flags &= ~VM_MAYEXEC;
++	if (!(vma->vm_flags & VM_WRITE))
++		vma->vm_flags &= ~VM_MAYWRITE;
++
++	return map->ops->map_mmap(map, vma);
++}
++
++static __poll_t bpf_map_poll(struct file *filp, poll_table *wait)
++{
++	struct bpf_map *map = filp->private_data;
++
++	if (map->ops->map_poll)
++		return map->ops->map_poll(map, filp, wait);
++
++	/* Match vfs_poll() for existing maps without a callback. */
++	return DEFAULT_POLLMASK;
++}
++
+ const struct file_operations bpf_map_fops = {
+ #ifdef CONFIG_PROC_FS
+ 	.show_fdinfo	= bpf_map_show_fdinfo,
+@@ -401,6 +430,8 @@ const struct file_operations bpf_map_fops = {
+ 	.release	= bpf_map_release,
+ 	.read		= bpf_dummy_read,
+ 	.write		= bpf_dummy_write,
++	.mmap		= bpf_map_mmap,
++	.poll		= bpf_map_poll,
+ };
+ 
+ int bpf_map_new_fd(struct bpf_map *map, int flags)
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index de0926c..df729e8 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -189,6 +189,8 @@ struct bpf_call_arg_meta {
+ 	int regno;
+ 	int access_size;
+ 	u64 msize_max_value;
++	u32 ringbuf_size;
++	u32 ringbuf_ref_id;
+ };
+ 
+ static DEFINE_MUTEX(bpf_verifier_lock);
+@@ -249,6 +251,13 @@ static bool type_is_pkt_pointer(enum bpf_reg_type type)
+ 	       type == PTR_TO_PACKET_META;
+ }
+ 
++
++static bool is_ringbuf_pointer(enum bpf_reg_type type)
++{
++	return type == PTR_TO_RINGBUF_RECORD ||
++	       type == PTR_TO_RINGBUF_RECORD_OR_NULL;
++}
++
+ /* string representation of 'enum bpf_reg_type' */
+ static const char * const reg_type_str[] = {
+ 	[NOT_INIT]		= "?",
+@@ -257,6 +266,8 @@ static const char * const reg_type_str[] = {
+ 	[CONST_PTR_TO_MAP]	= "map_ptr",
+ 	[PTR_TO_MAP_VALUE]	= "map_value",
+ 	[PTR_TO_MAP_VALUE_OR_NULL] = "map_value_or_null",
++	[PTR_TO_RINGBUF_RECORD] = "ringbuf_record",
++	[PTR_TO_RINGBUF_RECORD_OR_NULL] = "ringbuf_record_or_null",
+ 	[PTR_TO_STACK]		= "fp",
+ 	[PTR_TO_PACKET]		= "pkt",
+ 	[PTR_TO_PACKET_META]	= "pkt_meta",
+@@ -435,6 +446,9 @@ static void free_verifier_state(struct bpf_verifier_state *state,
+ 		free_func_state(state->frame[i]);
+ 		state->frame[i] = NULL;
+ 	}
++	kfree(state->ringbuf_refs);
++	state->ringbuf_refs = NULL;
++	state->ringbuf_ref_count = 0;
+ 	if (free_self)
+ 		kfree(state);
+ }
+@@ -458,8 +472,20 @@ static int copy_verifier_state(struct bpf_verifier_state *dst_state,
+ 			       const struct bpf_verifier_state *src)
+ {
+ 	struct bpf_func_state *dst;
++	u32 *ringbuf_refs = NULL;
+ 	int i, err;
+ 
++	if (src->ringbuf_ref_count) {
++		ringbuf_refs = kmemdup(src->ringbuf_refs,
++				      array_size(src->ringbuf_ref_count, sizeof(*ringbuf_refs)),
++				      GFP_KERNEL);
++		if (!ringbuf_refs)
++			return -ENOMEM;
++	}
++	kfree(dst_state->ringbuf_refs);
++	dst_state->ringbuf_refs = ringbuf_refs;
++	dst_state->ringbuf_ref_count = src->ringbuf_ref_count;
++
+ 	/* if dst has more stack frames then src frame, free them */
+ 	for (i = src->curframe + 1; i <= dst_state->curframe; i++) {
+ 		free_func_state(dst_state->frame[i]);
+@@ -943,6 +969,8 @@ static int check_reg_arg(struct bpf_verifier_env *env, u32 regno,
+ static bool is_spillable_regtype(enum bpf_reg_type type)
+ {
+ 	switch (type) {
++	case PTR_TO_RINGBUF_RECORD:
++	case PTR_TO_RINGBUF_RECORD_OR_NULL:
+ 	case PTR_TO_MAP_VALUE:
+ 	case PTR_TO_MAP_VALUE_OR_NULL:
+ 	case PTR_TO_STACK:
+@@ -998,8 +1026,9 @@ static int check_stack_write(struct bpf_verifier_env *env,
+ 	/* caller checked that off % size == 0 and -MAX_BPF_STACK <= off < 0,
+ 	 * so it's aligned access and [off, off + size) are within stack limits
+ 	 */
+-	if (!env->allow_ptr_leaks &&
+-	    state->stack[spi].slot_type[0] == STACK_SPILL &&
++	if (state->stack[spi].slot_type[0] == STACK_SPILL &&
++	    (!env->allow_ptr_leaks ||
++	     is_ringbuf_pointer(state->stack[spi].spilled_ptr.type)) &&
+ 	    size != BPF_REG_SIZE) {
+ 		verbose(env, "attempt to corrupt spilled pointer on stack\n");
+ 		return -EACCES;
+@@ -1353,6 +1382,8 @@ static int check_ctx_access(struct bpf_verifier_env *env, int insn_idx, int off,
+ static bool __is_pointer_value(bool allow_ptr_leaks,
+ 			       const struct bpf_reg_state *reg)
+ {
++	if (is_ringbuf_pointer(reg->type))
++		return true;
+ 	if (allow_ptr_leaks)
+ 		return false;
+ 
+@@ -1635,6 +1666,23 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
+ 	if (err)
+ 		return err;
+ 
++	if (reg->type == PTR_TO_RINGBUF_RECORD) {
++		/* Only a constant instruction offset is allowed on these pointers. */
++		if (reg->off || !tnum_equals_const(reg->var_off, 0) ||
++		    off < 0 || (u64)off + size > reg->ringbuf_size) {
++			verbose(env, "ringbuf record access outside reservation\n");
++			return -EACCES;
++		}
++		if (t == BPF_WRITE && value_regno >= 0 &&
++		    regs[value_regno].type != SCALAR_VALUE) {
++			verbose(env, "cannot write a pointer into a ringbuf record\n");
++			return -EACCES;
++		}
++		if (t == BPF_READ && value_regno >= 0)
++			mark_reg_unknown(env, regs, value_regno);
++		return 0;
++	}
++
+ 	/* for access checks, reg->off is just part of off */
+ 	off += reg->off;
+ 
+@@ -1966,6 +2014,26 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 regno,
+ 	if (err)
+ 		return err;
+ 
++	if (arg_type == ARG_CONST_RINGBUF_SIZE) {
++		if (type != SCALAR_VALUE || !tnum_is_const(reg->var_off) ||
++		    reg->var_off.value > BPF_MAX_VAR_SIZ)
++			return -EACCES;
++		meta->ringbuf_size = reg->var_off.value;
++		return 0;
++	}
++
++	if (arg_type == ARG_PTR_TO_RINGBUF_RECORD) {
++		if (type != PTR_TO_RINGBUF_RECORD || !reg->id || reg->off ||
++		    !tnum_equals_const(reg->var_off, 0))
++			return -EACCES;
++		meta->ringbuf_ref_id = reg->id;
++		return 0;
++	}
++
++	/* Ring records are not arguments to generic helpers. */
++	if (is_ringbuf_pointer(type))
++		return -EACCES;
++
+ 	if (arg_type == ARG_ANYTHING) {
+ 		if (is_pointer_value(env, regno)) {
+ 			verbose(env, "R%d leaks addr into helper function\n",
+@@ -2112,6 +2180,12 @@ static int check_map_func_compatibility(struct bpf_verifier_env *env,
+ 
+ 	/* We need a two way check, first is from map perspective ... */
+ 	switch (map->map_type) {
++	case BPF_MAP_TYPE_RINGBUF:
++		if (func_id != BPF_FUNC_ringbuf_output &&
++		    func_id != BPF_FUNC_ringbuf_reserve &&
++		    func_id != BPF_FUNC_ringbuf_query)
++			goto error;
++		break;
+ 	case BPF_MAP_TYPE_PROG_ARRAY:
+ 		if (func_id != BPF_FUNC_tail_call)
+ 			goto error;
+@@ -2180,6 +2254,12 @@ static int check_map_func_compatibility(struct bpf_verifier_env *env,
+ 
+ 	/* ... and second from the function itself. */
+ 	switch (func_id) {
++	case BPF_FUNC_ringbuf_output:
++	case BPF_FUNC_ringbuf_reserve:
++	case BPF_FUNC_ringbuf_query:
++		if (map->map_type != BPF_MAP_TYPE_RINGBUF)
++			goto error;
++		break;
+ 	case BPF_FUNC_tail_call:
+ 		if (map->map_type != BPF_MAP_TYPE_PROG_ARRAY)
+ 			goto error;
+@@ -2326,12 +2406,97 @@ static void clear_all_pkt_pointers(struct bpf_verifier_env *env)
+ 		__clear_all_pkt_pointers(env, vstate->frame[i]);
+ }
+ 
++
++static int acquire_ringbuf_ref(struct bpf_verifier_env *env, u32 *id)
++{
++	struct bpf_verifier_state *state = env->cur_state;
++	u32 count = state->ringbuf_ref_count;
++	u32 *refs;
++
++	refs = krealloc(state->ringbuf_refs, array_size(count + 1, sizeof(*refs)),
++			GFP_KERNEL);
++	if (!refs)
++		return -ENOMEM;
++
++	*id = ++env->id_gen;
++	state->ringbuf_refs = refs;
++	refs[count] = *id;
++	state->ringbuf_ref_count++;
++	return 0;
++}
++
++static bool drop_ringbuf_ref(struct bpf_verifier_state *state, u32 id)
++{
++	u32 i;
++
++	for (i = 0; i < state->ringbuf_ref_count; i++) {
++		if (state->ringbuf_refs[i] != id)
++			continue;
++		state->ringbuf_ref_count--;
++		state->ringbuf_refs[i] = state->ringbuf_refs[state->ringbuf_ref_count];
++		return true;
++	}
++	return false;
++}
++
++static void update_ringbuf_alias(struct bpf_reg_state *reg, u32 id,
++				bool is_null, bool release)
++{
++	if (!is_ringbuf_pointer(reg->type) || reg->id != id)
++		return;
++	if (release)
++		__mark_reg_not_init(reg);
++	else if (is_null)
++		__mark_reg_const_zero(reg);
++	else
++		reg->type = PTR_TO_RINGBUF_RECORD;
++}
++
++static void update_ringbuf_aliases(struct bpf_verifier_state *state, u32 id,
++				    bool is_null, bool release)
++{
++	int j, i;
++
++	for (j = 0; j <= state->curframe; j++) {
++		struct bpf_func_state *frame = state->frame[j];
++
++		for (i = 0; i < MAX_BPF_REG; i++)
++			update_ringbuf_alias(&frame->regs[i], id, is_null, release);
++
++		for (i = 0; i < frame->allocated_stack / BPF_REG_SIZE; i++) {
++			struct bpf_stack_state *slot = &frame->stack[i];
++
++			if (slot->slot_type[0] != STACK_SPILL)
++				continue;
++			if (release && is_ringbuf_pointer(slot->spilled_ptr.type) &&
++			    slot->spilled_ptr.id == id)
++				memset(slot->slot_type, STACK_INVALID,
++				       sizeof(slot->slot_type));
++			update_ringbuf_alias(&slot->spilled_ptr, id, is_null, release);
++		}
++	}
++}
++
++static int check_ringbuf_refs_empty(struct bpf_verifier_env *env,
++				   const char *operation)
++{
++	if (!env->cur_state->ringbuf_ref_count)
++		return 0;
++
++	verbose(env, "%s with outstanding ringbuf reservations\n", operation);
++	return -EINVAL;
++}
++
+ static int check_func_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
+ 			   int *insn_idx)
+ {
+ 	struct bpf_verifier_state *state = env->cur_state;
+ 	struct bpf_func_state *caller, *callee;
+-	int i, subprog, target_insn;
++	int i, subprog, target_insn, err;
++
++	err = check_ringbuf_refs_empty(env, "BPF-to-BPF call");
++	if (err)
++		return err;
+ 
+ 	if (state->curframe + 1 >= MAX_CALL_FRAMES) {
+ 		verbose(env, "the call stack of %d frames is too deep\n",
+@@ -2507,6 +2672,12 @@ static int check_helper_call(struct bpf_verifier_env *env, int func_id, int insn
+ 	bool changes_data;
+ 	int i, err;
+ 
++	if (func_id == BPF_FUNC_tail_call) {
++		err = check_ringbuf_refs_empty(env, "tail call");
++		if (err)
++			return err;
++	}
++
+ 	/* find function prototype */
+ 	if (func_id < 0 || func_id >= __BPF_FUNC_MAX_ID) {
+ 		verbose(env, "invalid func %s#%d\n", func_id_name(func_id),
+@@ -2588,6 +2759,15 @@ static int check_helper_call(struct bpf_verifier_env *env, int func_id, int insn
+ 		return -EINVAL;
+ 	}
+ 
++	if (func_id == BPF_FUNC_ringbuf_submit ||
++	    func_id == BPF_FUNC_ringbuf_discard) {
++		if (!drop_ringbuf_ref(env->cur_state, meta.ringbuf_ref_id)) {
++			verbose(env, "ringbuf helper requires an owned reservation\n");
++			return -EACCES;
++		}
++		update_ringbuf_aliases(env->cur_state, meta.ringbuf_ref_id, false, true);
++	}
++
+ 	/* reset caller saved regs */
+ 	for (i = 0; i < CALLER_SAVED_REGS; i++) {
+ 		mark_reg_not_init(env, regs, caller_saved[i]);
+@@ -2600,6 +2780,18 @@ static int check_helper_call(struct bpf_verifier_env *env, int func_id, int insn
+ 		mark_reg_unknown(env, regs, BPF_REG_0);
+ 	} else if (fn->ret_type == RET_VOID) {
+ 		regs[BPF_REG_0].type = NOT_INIT;
++	} else if (fn->ret_type == RET_PTR_TO_RINGBUF_RECORD_OR_NULL) {
++		u32 id;
++
++		if (!meta.map_ptr || meta.map_ptr->map_type != BPF_MAP_TYPE_RINGBUF)
++			return -EINVAL;
++		err = acquire_ringbuf_ref(env, &id);
++		if (err)
++			return err;
++		mark_reg_known_zero(env, regs, BPF_REG_0);
++		regs[BPF_REG_0].type = PTR_TO_RINGBUF_RECORD_OR_NULL;
++		regs[BPF_REG_0].id = id;
++		regs[BPF_REG_0].ringbuf_size = meta.ringbuf_size;
+ 	} else if (fn->ret_type == RET_PTR_TO_MAP_VALUE_OR_NULL ||
+ 		   fn->ret_type == RET_PTR_TO_MAP_VALUE) {
+ 		if (fn->ret_type == RET_PTR_TO_MAP_VALUE)
+@@ -3518,6 +3710,12 @@ static int adjust_reg_min_max_vals(struct bpf_verifier_env *env,
+ 
+ 	dst_reg = &regs[insn->dst_reg];
+ 	src_reg = NULL;
++	if (is_ringbuf_pointer(dst_reg->type) ||
++	    (BPF_SRC(insn->code) == BPF_X &&
++	     is_ringbuf_pointer(regs[insn->src_reg].type))) {
++		verbose(env, "ringbuf record pointer arithmetic is prohibited\n");
++		return -EACCES;
++	}
+ 	if (dst_reg->type != SCALAR_VALUE)
+ 		ptr_reg = dst_reg;
+ 	if (BPF_SRC(insn->code) == BPF_X) {
+@@ -4298,6 +4496,14 @@ static int check_cond_jmp_op(struct bpf_verifier_env *env,
+ 
+ 	dst_reg = &regs[insn->dst_reg];
+ 
++	if (is_ringbuf_pointer(dst_reg->type) ||
++	    (BPF_SRC(insn->code) == BPF_X && is_ringbuf_pointer(src_reg->type))) {
++		if (BPF_SRC(insn->code) != BPF_K || insn->imm ||
++		    (opcode != BPF_JEQ && opcode != BPF_JNE) ||
++		    dst_reg->type != PTR_TO_RINGBUF_RECORD_OR_NULL)
++			return -EACCES;
++	}
++
+ 	if (BPF_SRC(insn->code) == BPF_K)
+ 		pred = is_branch_taken(dst_reg, insn->imm, opcode);
+ 	else if (src_reg->type == SCALAR_VALUE &&
+@@ -4365,8 +4571,15 @@ static int check_cond_jmp_op(struct bpf_verifier_env *env,
+ 					dst_reg, insn->imm, opcode);
+ 	}
+ 
+-	/* detect if R == 0 where R is returned from bpf_map_lookup_elem() */
+-	if (BPF_SRC(insn->code) == BPF_K &&
++	if (dst_reg->type == PTR_TO_RINGBUF_RECORD_OR_NULL) {
++		u32 id = dst_reg->id;
++		bool fallthrough_null = opcode == BPF_JNE;
++
++		if (!drop_ringbuf_ref(fallthrough_null ? this_branch : other_branch, id))
++			return -EACCES;
++		update_ringbuf_aliases(this_branch, id, fallthrough_null, false);
++		update_ringbuf_aliases(other_branch, id, !fallthrough_null, false);
++	} else if (BPF_SRC(insn->code) == BPF_K &&
+ 	    insn->imm == 0 && (opcode == BPF_JEQ || opcode == BPF_JNE) &&
+ 	    dst_reg->type == PTR_TO_MAP_VALUE_OR_NULL) {
+ 		/* Mark all identical map registers in each branch as either
+@@ -4463,6 +4676,10 @@ static int check_ld_abs(struct bpf_verifier_env *env, struct bpf_insn *insn)
+ 	u8 mode = BPF_MODE(insn->code);
+ 	int i, err;
+ 
++	err = check_ringbuf_refs_empty(env, "BPF_LD_ABS/IND");
++	if (err)
++		return err;
++
+ 	if (!may_access_skb(env->prog->type)) {
+ 		verbose(env, "BPF_LD_[ABS|IND] instructions not allowed for this program type\n");
+ 		return -EINVAL;
+@@ -5039,6 +5256,13 @@ static bool states_equal(struct bpf_verifier_env *env,
+ 	if (old->curframe != cur->curframe)
+ 		return false;
+ 
++	/* Do not prune a path with outstanding reservations. A register may
++	 * be dead for liveness tracking while its reservation still needs
++	 * to be submitted or discarded.
++	 */
++	if (old->ringbuf_ref_count || cur->ringbuf_ref_count)
++		return false;
++
+ 	/* Verification state from speculative execution simulation
+ 	 * must never prune a non-speculative execution one.
+ 	 */
+@@ -5450,6 +5674,10 @@ static int do_check(struct bpf_verifier_env *env)
+ 					return -EINVAL;
+ 				}
+ 
++				err = check_ringbuf_refs_empty(env, "program exit");
++				if (err)
++					return err;
++
+ 				if (state->curframe) {
+ 					/* exit from nested function */
+ 					env->prev_insn_idx = env->insn_idx;
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 46fc2da..89b872e 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -4924,6 +4924,16 @@ static const struct bpf_func_proto *
+ cg_skb_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
+ {
+ 	switch (func_id) {
++	case BPF_FUNC_ringbuf_reserve:
++		return &bpf_ringbuf_reserve_proto;
++	case BPF_FUNC_ringbuf_submit:
++		return &bpf_ringbuf_submit_proto;
++	case BPF_FUNC_ringbuf_discard:
++		return &bpf_ringbuf_discard_proto;
++	case BPF_FUNC_ringbuf_output:
++		return &bpf_ringbuf_output_proto;
++	case BPF_FUNC_ringbuf_query:
++		return &bpf_ringbuf_query_proto;
+ 	case BPF_FUNC_get_local_storage:
+ 		return &bpf_get_local_storage_proto;
+ 	default:
+diff --git a/techpack/audio/include/soc/internal.h b/techpack/audio/include/soc/internal.h
+index e517781..2bc0655 120000
+--- a/techpack/audio/include/soc/internal.h
++++ b/techpack/audio/include/soc/internal.h
+@@ -1 +1 @@
+-/home/smith/kernels/tb371fc/android_kernel_lenovo_tb371fc/drivers/base/regmap/internal.h
+\ No newline at end of file
++../../../../drivers/base/regmap/internal.h
+\ No newline at end of file
+diff --git a/techpack/audio/soc/core.h b/techpack/audio/soc/core.h
+index faa932c..8a2fa90 120000
+--- a/techpack/audio/soc/core.h
++++ b/techpack/audio/soc/core.h
+@@ -1 +1 @@
+-/home/smith/kernels/tb371fc/android_kernel_lenovo_tb371fc/drivers/pinctrl/core.h
+\ No newline at end of file
++../../../drivers/pinctrl/core.h
+\ No newline at end of file
+diff --git a/techpack/audio/soc/pinctrl-utils.h b/techpack/audio/soc/pinctrl-utils.h
+index 2a4c3dd..9aab5f2 120000
+--- a/techpack/audio/soc/pinctrl-utils.h
++++ b/techpack/audio/soc/pinctrl-utils.h
+@@ -1 +1 @@
+-/home/smith/kernels/tb371fc/android_kernel_lenovo_tb371fc/drivers/pinctrl/pinctrl-utils.h
+\ No newline at end of file
++../../../drivers/pinctrl/pinctrl-utils.h
+\ No newline at end of file
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index 0fe3335..a3f4547 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -127,6 +127,8 @@ enum bpf_map_type {
+ 	BPF_MAP_TYPE_SOCKHASH,
+ 	BPF_MAP_TYPE_CGROUP_STORAGE,
+ 	BPF_MAP_TYPE_REUSEPORT_SOCKARRAY,
++	/* Keep the Linux UAPI number, including unimplemented types. */
++	BPF_MAP_TYPE_RINGBUF = 27,
+ };
+ 
+ enum bpf_prog_type {
+@@ -2294,7 +2296,16 @@ union bpf_attr {
+ 	FN(get_netns_cookie),		\
+ 	FN(get_current_ancestor_cgroup_id),	\
+ 	FN(sk_assign),			\
+-	FN(ktime_get_boot_ns),
++	FN(ktime_get_boot_ns),	\
++	FN(seq_printf),	\
++	FN(seq_write),	\
++	FN(sk_cgroup_id),	\
++	FN(sk_ancestor_cgroup_id),	\
++	FN(ringbuf_output),	\
++	FN(ringbuf_reserve),	\
++	FN(ringbuf_submit),	\
++	FN(ringbuf_discard),	\
++	FN(ringbuf_query),
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+@@ -2308,6 +2319,25 @@ enum bpf_func_id {
+ 
+ /* All flags used by eBPF helper functions, placed here. */
+ 
++enum {
++	BPF_RB_NO_WAKEUP		= (1ULL << 0),
++	BPF_RB_FORCE_WAKEUP	= (1ULL << 1),
++};
++
++enum {
++	BPF_RB_AVAIL_DATA = 0,
++	BPF_RB_RING_SIZE = 1,
++	BPF_RB_CONS_POS = 2,
++	BPF_RB_PROD_POS = 3,
++};
++
++enum {
++	BPF_RINGBUF_BUSY_BIT	= (1U << 31),
++	BPF_RINGBUF_DISCARD_BIT	= (1U << 30),
++	BPF_RINGBUF_HDR_SZ	= 8,
++};
++
++
+ /* BPF_FUNC_skb_store_bytes flags. */
+ #define BPF_F_RECOMPUTE_CSUM		(1ULL << 0)
+ #define BPF_F_INVALIDATE_HASH		(1ULL << 1)

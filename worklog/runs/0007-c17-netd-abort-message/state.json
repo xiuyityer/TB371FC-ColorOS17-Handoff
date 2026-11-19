@@ -1,0 +1,18 @@
+{
+  "state": "root_cause_observed",
+  "serial": "DEVICE_SERIAL",
+  "slot": "a",
+  "source_sha256": "d97e4575ecc3c4f06a94e6f7d003729637e021d0dac70dac10524cd68dc88cc3",
+  "diagnostic_sha256": "c0165dad6e99e7d11f26b10429de979223c4618e298e1a85c5dc8d6382afaa20",
+  "bytes": 82760,
+  "virtual_address": "0x10798",
+  "file_offset": "0x10798",
+  "before": "mov w3, #4 (ERROR)",
+  "after": "mov w3, #6 (FATAL)",
+  "device_written": true,
+  "hardware_test_pass": false,
+  "fastboot_slot_verified": "a",
+  "recovery_command_timeout_seconds": 15,
+  "tombstones_changed": 5,
+  "missing_program": "/sys/fs/bpf/netd_shared/prog_netd_egress_stats"
+}

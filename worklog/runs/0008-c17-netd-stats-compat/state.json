@@ -1,0 +1,14 @@
+{
+  "state": "netd_pass_framework_ringbuf_abort",
+  "serial": "DEVICE_SERIAL",
+  "slot": "a",
+  "system_a_sha256": "4ce0ce2914fef9bc72cfa195bc4d3f426d608433494e14401d0d4a606c649cec",
+  "system_a_device_readback_pass": true,
+  "hardware_test_pass": false,
+  "android_adb": true,
+  "netd1shot_pass": true,
+  "netd_running": true,
+  "ksu_root": true,
+  "boot_completed": false,
+  "selinux": "Permissive"
+}

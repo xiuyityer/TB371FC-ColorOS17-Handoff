@@ -1,0 +1,21 @@
+Source changes:
+arch/arm64/include/asm/lse.h
+drivers/rmnet/perf/rmnet_perf_opt.c
+drivers/staging/qca-wifi-host-cmn/hif/src/ce/ce_service_srng.c
+drivers/staging/qca-wifi-host-cmn/target_if/core/src/target_if_main.c
+include/linux/bpf.h
+include/linux/bpf_types.h
+include/linux/bpf_verifier.h
+include/uapi/linux/bpf.h
+kernel/bpf/Makefile
+kernel/bpf/ringbuf.c
+kernel/bpf/syscall.c
+kernel/bpf/verifier.c
+net/core/filter.c
+techpack/audio/include/soc/internal.h
+techpack/audio/soc/core.h
+techpack/audio/soc/pinctrl-utils.h
+tools/include/uapi/linux/bpf.h
+
+Binary differences omitted:
+

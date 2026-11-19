@@ -1,0 +1,13 @@
+{
+  "state": "boot_completed_with_temporary_wifi_qspm_overlays",
+  "serial": "DEVICE_SERIAL",
+  "system_a_readback_verified": true,
+  "system_a_sha256": "76f665ffbbe2c5126993bbad1887b2532c7064b5de7eb364675de54f11b5308e",
+  "hardware_test_pass": false,
+  "boot_completed": true,
+  "cold_boot_pass": false,
+  "final_hardware_test_pass": false,
+  "wifi_fix_persistent": false,
+  "qspm_fix_persistent": false,
+  "vintf_warning_present": true
+}

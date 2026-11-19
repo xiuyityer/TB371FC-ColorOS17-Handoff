@@ -1,0 +1,13 @@
+{
+  "state": "BOOTLOG_BOOT_WRITTEN_WAITING_MANUAL_TWRP_READBACK",
+  "serial": "DEVICE_SERIAL",
+  "slot": "a",
+  "boot_a_sha256_written": "e2c7dfca9d69ba13ab80429e119274690d039508e3de169b45364a4b5ce1ec25",
+  "super_sha256_unchanged_before_boot": "95350ff18ee5f7f55ae0e3e64a0e4383817f1beb4174009d0acadbf4406903a0",
+  "recovery_image_prefix_sha256": "6ce174af2b2bf6ebcec026d94fa95a12037e78ae1c27d3abfe40fbe0008fe7e7",
+  "fastboot_flash_acknowledged": true,
+  "boot_success": false,
+  "adb_or_fastboot_seen_after_reboot": false,
+  "observation_window_seconds": 185,
+  "next": "Manually enter the original TWRP without formatting data or restoring C16, then read boot_a bytes [83886080,88080384) and decode with tools/decode_bootlog.py."
+}

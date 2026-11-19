@@ -1,0 +1,19 @@
+# C17 mirror: ODMF OPEX is mounted after post-fs-data and before zygote.
+on load-bpf-programs && property:ro.product.board=spinel
+    mount none /system_ext/etc/c17-port/odmf-surface.jar /system_ext/framework/oplusex/com.oplus.odmf/odmf.jar bind
+
+on post-fs-data && property:ro.product.board=spinel && property:ro.build.version.sdk=37
+    insmod /system_ext/etc/c17-virtual-radio/oplus_vnet.ko numvnets=3
+    mount none /system_ext/etc/c17-virtual-radio/bin /vendor/bin/r94-commcenter bind
+    mount none /system_ext/etc/c17-virtual-radio/lib64 /vendor/lib64/r94-commcenter bind
+
+service c17_virtual_ril /vendor/bin/r94-commcenter/subsys_daemon -l /vendor/lib64/r94-commcenter/lib-virtual-modem-radio.so -i 0
+    class main
+    user radio
+    group radio cache inet misc audio log readproc wakelock
+    capabilities BLOCK_SUSPEND
+    seclabel u:r:rild:s0
+    interface android.hardware.radio@1.5::IRadio vircommslot1
+    interface vendor.qti.hardware.radio.ims@1.7::IImsRadio imsradio0
+    disabled
+    oneshot

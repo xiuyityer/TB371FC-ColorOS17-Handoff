@@ -1,0 +1,160 @@
+4,1999,1604730,-;erofs: loading out-of-tree module taints kernel.
+6,2153,1768467,-;erofs: (device dm-0): mounted with opts: , root inode @ nid 37.
+6,2157,1769280,-;erofs: (device dm-1): mounted with opts: , root inode @ nid 37.
+6,2160,1769531,-;erofs: (device dm-2): mounted with opts: , root inode @ nid 41.
+6,2169,1772555,-;erofs: (device dm-5): mounted with opts: , root inode @ nid 37.
+6,2172,1772796,-;erofs: (device dm-6): mounted with opts: , root inode @ nid 37.
+6,2175,1773093,-;erofs: (device dm-7): mounted with opts: , root inode @ nid 39.
+6,2178,1773378,-;erofs: (device dm-8): mounted with opts: , root inode @ nid 38.
+6,2181,1773613,-;erofs: (device dm-9): mounted with opts: , root inode @ nid 38.
+6,2184,1773814,-;erofs: (device dm-10): mounted with opts: , root inode @ nid 38.
+6,2187,1774014,-;erofs: (device dm-11): mounted with opts: , root inode @ nid 38.
+6,2190,1774263,-;erofs: (device dm-12): mounted with opts: , root inode @ nid 38.
+14,2199,1835454,-;init: Opening SELinux policy
+14,2201,1836318,-;init: /system/etc/selinux/plat_sepolicy_and_mapping.sha256 and /odm/etc/selinux/precompiled_sepolicy.plat_sepolicy_and_mapping.sha256 differ
+14,2202,1836323,-;init: Compiling SELinux policy
+14,2207,1838907,-;init: Missing /system/etc/selinux/plat_sepolicy_genfs_202404.cil; skipping
+14,2220,2648750,-;init: Loading SELinux policy
+6,2223,2686105,-;SELinux:  policy capability network_peer_controls=1
+6,2224,2686110,-;SELinux:  policy capability open_perms=1
+6,2225,2686112,-;SELinux:  policy capability extended_socket_class=1
+6,2226,2686114,-;SELinux:  policy capability always_check_network=0
+6,2227,2686117,-;SELinux:  policy capability cgroup_seclabel=0
+6,2228,2686118,-;SELinux:  policy capability nnp_nosuid_transition=1
+6,2461,2800557,-;KernelSU: SELinux permissive or disabled, apply rules!
+14,2580,2823761,-;init: Parsing file /system/etc/init/netbpfload.rc...
+14,2696,2834608,-;init: Parsing file /system_ext/etc/init/self_init_abnormal_reboot_record.rc...
+6,3026,3172808,-;erofs: (device loop2): mounted with opts: , root inode @ nid 39.
+6,3027,3172856,-;erofs: (device loop4): mounted with opts: , root inode @ nid 38.
+6,3029,3173077,-;erofs: (device loop0): mounted with opts: , root inode @ nid 39.
+6,3031,3175857,-;erofs: (device loop3): mounted with opts: , root inode @ nid 39.
+14,4250,3665212,-;init: not find persist prop: persist.sys.oppo.reboot
+6,4430,3698650,-;erofs: (device loop11): mounted with opts: , root inode @ nid 38.
+6,4433,3699011,-;erofs: (device loop12): mounted with opts: , root inode @ nid 38.
+6,4441,3699931,-;erofs: (device loop15): mounted with opts: , root inode @ nid 39.
+6,4443,3700004,-;erofs: (device loop14): mounted with opts: , root inode @ nid 38.
+6,4457,3701196,-;erofs: (device loop16): mounted with opts: , root inode @ nid 39.
+6,4458,3701261,-;erofs: (device loop13): mounted with opts: , root inode @ nid 38.
+6,4463,3702178,-;erofs: (device loop17): mounted with opts: , root inode @ nid 39.
+6,4464,3702247,-;erofs: (device loop18): mounted with opts: , root inode @ nid 39.
+6,4467,3702526,-;erofs: (device loop19): mounted with opts: , root inode @ nid 38.
+6,4486,3703759,-;erofs: (device loop20): mounted with opts: , root inode @ nid 38.
+6,4487,3703760,-;erofs: (device loop21): mounted with opts: , root inode @ nid 38.
+6,4492,3705069,-;erofs: (device loop23): mounted with opts: , root inode @ nid 39.
+6,4496,3705322,-;erofs: (device loop22): mounted with opts: , root inode @ nid 38.
+6,4500,3706374,-;erofs: (device loop24): mounted with opts: , root inode @ nid 38.
+6,4501,3706409,-;erofs: (device loop26): mounted with opts: , root inode @ nid 36.
+6,4503,3706534,-;erofs: (device loop25): mounted with opts: , root inode @ nid 38.
+6,4507,3707718,-;erofs: (device loop27): mounted with opts: , root inode @ nid 39.
+6,4517,3708993,-;erofs: (device loop29): mounted with opts: , root inode @ nid 38.
+6,4521,3709436,-;erofs: (device loop30): mounted with opts: , root inode @ nid 38.
+6,4522,3709842,-;erofs: (device loop31): mounted with opts: , root inode @ nid 39.
+6,4523,3710364,-;erofs: (device loop33): mounted with opts: , root inode @ nid 38.
+6,4526,3711437,-;erofs: (device loop32): mounted with opts: , root inode @ nid 38.
+6,4530,3711681,-;erofs: (device loop34): mounted with opts: , root inode @ nid 38.
+6,4542,3713379,-;erofs: (device loop35): mounted with opts: , root inode @ nid 38.
+6,4543,3716705,-;erofs: (device loop37): mounted with opts: , root inode @ nid 39.
+6,4544,3716706,-;erofs: (device loop36): mounted with opts: , root inode @ nid 38.
+6,4546,3716793,-;erofs: (device loop39): mounted with opts: , root inode @ nid 38.
+6,4547,3716814,-;erofs: (device loop38): mounted with opts: , root inode @ nid 38.
+6,4558,3718703,-;erofs: (device loop42): mounted with opts: , root inode @ nid 38.
+6,4559,3718760,-;erofs: (device loop43): mounted with opts: , root inode @ nid 38.
+6,4560,3718827,-;erofs: (device loop40): mounted with opts: , root inode @ nid 38.
+6,4567,3719715,-;erofs: (device loop44): mounted with opts: , root inode @ nid 40.
+6,4573,3720324,-;erofs: (device loop45): mounted with opts: , root inode @ nid 38.
+6,4577,3721753,-;erofs: (device loop46): mounted with opts: , root inode @ nid 41.
+6,4580,3722339,-;erofs: (device loop47): mounted with opts: , root inode @ nid 39.
+6,4581,3722583,-;erofs: (device loop48): mounted with opts: , root inode @ nid 38.
+6,4582,3723012,-;erofs: (device loop49): mounted with opts: , root inode @ nid 38.
+14,4644,3757390,-;init: Parsing file /apex/com.android.tethering/etc/netbpfload.35rc...
+6,4788,4334541,-;KernelSU: SELinux permissive or disabled when handle policy!
+14,5532,4463877,-;init: processing action (load-bpf-programs) from (/system/etc/init/netbpfload.rc:38)
+14,5545,4474918,-;NetBpfLoad: /system/bin/c17-netbpfload api:37/3700 kver:4130145 (64-on-aarch64:4k) libbpf: v1.4 uid:0 rc:01 user:100
+14,5546,4475376,-;NetBpfLoad: Tethering APEX version 370399999
+14,5547,4475421,-;NetBpfLoad: detected 5 of 5: 2026Q2 api:37.0.0=3700
+15,5551,4480185,-;NetBpfLoad: Processing ELF object /apex/com.android.tethering/etc/bpf/mainline/offload.o (license Apache 2.0)
+15,5552,4480512,-;NetBpfLoad: bpf_create_map[tether_error_map] btf:1 -> 4
+15,5553,4480560,-;NetBpfLoad: bpf_create_map[tether_stats_map] btf:1 -> 5
+15,5554,4480575,-;NetBpfLoad: bpf_create_map[tether_limit_map] btf:1 -> 6
+15,5555,4480590,-;NetBpfLoad: bpf_create_map[tether_downstream6_map] btf:1 -> 7
+15,5556,4480641,-;NetBpfLoad: bpf_create_map[tether_downstream64_map] btf:1 -> 8
+15,5557,4480657,-;NetBpfLoad: bpf_create_map[tether_upstream6_map] btf:1 -> 9
+15,5558,4480706,-;NetBpfLoad: bpf_create_map[tether_downstream4_map] btf:1 -> 10
+15,5559,4480758,-;NetBpfLoad: bpf_create_map[tether_upstream4_map] btf:1 -> 11
+15,5560,4480776,-;NetBpfLoad: bpf_create_map[tether_dev_map] btf:1 -> 12
+15,5561,4480919,-;NetBpfLoad: cs[0].name:schedcls_tether_downstream6_ether kver in [5040000,ffffffff) api level in [3100,65536)
+15,5562,4480921,-;NetBpfLoad: cs[1].name:schedcls_tether_upstream6_ether kver in [5040000,ffffffff) api level in [3100,65536)
+15,5563,4480923,-;NetBpfLoad: cs[2].name:schedcls_tether_downstream6_ether kver in [4090000,5040000) api level in [3100,65536)
+15,5564,4481173,-;NetBpfLoad: BPF_PROG_LOAD call for /apex/com.android.tethering/etc/bpf/mainline/offload.o (schedcls_tether_downstream6_ether) returned fd: 3
+15,5565,4481192,-;NetBpfLoad: cs[3].name:schedcls_tether_upstream6_ether kver in [4090000,5040000) api level in [3100,65536)
+15,5566,4481393,-;NetBpfLoad: BPF_PROG_LOAD call for /apex/com.android.tethering/etc/bpf/mainline/offload.o (schedcls_tether_upstream6_ether) returned fd: 13
+15,5567,4481406,-;NetBpfLoad: cs[4].name:schedcls_tether_downstream6_rawip kver in [5040000,ffffffff) api level in [3100,65536)
+15,5568,4481408,-;NetBpfLoad: cs[5].name:schedcls_tether_upstream6_rawip kver in [5040000,ffffffff) api level in [3100,65536)
+15,5569,4481410,-;NetBpfLoad: cs[6].name:schedcls_tether_downstream6_rawip kver in [40e0000,5040000) api level in [3100,65536)
+15,5570,4481569,-;NetBpfLoad: BPF_PROG_LOAD call for /apex/com.android.tethering/etc/bpf/mainline/offload.o (schedcls_tether_downstream6_rawip) returned fd: 14
+15,5571,4481582,-;NetBpfLoad: cs[7].name:schedcls_tether_upstream6_rawip kver in [40e0000,5040000) api level in [3100,65536)
+15,5572,4481726,-;NetBpfLoad: BPF_PROG_LOAD call for /apex/com.android.tethering/etc/bpf/mainline/offload.o (schedcls_tether_upstream6_rawip) returned fd: 15
+15,5573,4481737,-;NetBpfLoad: cs[8].name:schedcls_tether_downstream6_rawip kver in [4090000,40e0000) api level in [3100,65536)
+15,5574,4481739,-;NetBpfLoad: cs[9].name:schedcls_tether_upstream6_rawip kver in [4090000,40e0000) api level in [3100,65536)
+15,5575,4481740,-;NetBpfLoad: cs[10].name:schedcls_tether_downstream4_rawip kver in [50a0000,ffffffff) api level in [3100,65536)
+15,5576,4481741,-;NetBpfLoad: cs[11].name:schedcls_tether_upstream4_rawip kver in [50a0000,ffffffff) api level in [3100,65536)
+15,5577,4481742,-;NetBpfLoad: cs[12].name:schedcls_tether_downstream4_ether kver in [50a0000,ffffffff) api level in [3100,65536)
+15,5578,4481743,-;NetBpfLoad: cs[13].name:schedcls_tether_upstream4_ether kver in [50a0000,ffffffff) api level in [3100,65536)
+15,5579,4481744,-;NetBpfLoad: cs[14].name:schedcls_tether_downstream4_rawip kver in [5040000,50a0000) api level in [3100,65536)
+15,5580,4481745,-;NetBpfLoad: cs[15].name:schedcls_tether_upstream4_rawip kver in [5040000,50a0000) api level in [3100,65536)
+15,5581,4481746,-;NetBpfLoad: cs[16].name:schedcls_tether_downstream4_ether kver in [5040000,50a0000) api level in [3100,65536)
+15,5582,4481747,-;NetBpfLoad: cs[17].name:schedcls_tether_upstream4_ether kver in [5040000,50a0000) api level in [3100,65536)
+15,5583,4481748,-;NetBpfLoad: cs[18].name:schedcls_tether_downstream4_rawip kver in [40e0000,5040000) api level in [3100,65536)
+15,5584,4482078,-;NetBpfLoad: BPF_PROG_LOAD call for /apex/com.android.tethering/etc/bpf/mainline/offload.o (schedcls_tether_downstream4_rawip) returned fd: 16
+15,5585,4482093,-;NetBpfLoad: cs[19].name:schedcls_tether_upstream4_rawip kver in [40e0000,5040000) api level in [3100,65536)
+15,5586,4482385,-;NetBpfLoad: BPF_PROG_LOAD call for /apex/com.android.tethering/etc/bpf/mainline/offload.o (schedcls_tether_upstream4_rawip) returned fd: 17
+15,5587,4482399,-;NetBpfLoad: cs[20].name:schedcls_tether_downstream4_ether kver in [40e0000,5040000) api level in [3100,65536)
+15,5588,4482706,-;NetBpfLoad: BPF_PROG_LOAD call for /apex/com.android.tethering/etc/bpf/mainline/offload.o (schedcls_tether_downstream4_ether) returned fd: 18
+15,5589,4482719,-;NetBpfLoad: cs[21].name:schedcls_tether_upstream4_ether kver in [40e0000,5040000) api level in [3100,65536)
+15,5590,4482973,-;NetBpfLoad: BPF_PROG_LOAD call for /apex/com.android.tethering/etc/bpf/mainline/offload.o (schedcls_tether_upstream4_ether) returned fd: 19
+15,5591,4482986,-;NetBpfLoad: cs[22].name:schedcls_tether_downstream4_rawip kver in [5040000,50a0000) api level in [3100,65536)
+15,5592,4482987,-;NetBpfLoad: cs[23].name:schedcls_tether_upstream4_rawip kver in [5040000,50a0000) api level in [3100,65536)
+15,5593,4482988,-;NetBpfLoad: cs[24].name:schedcls_tether_downstream4_rawip kver in [40e0000,5040000) api level in [3100,65536)
+15,5594,4482994,-;NetBpfLoad: New bpf prog load reusing prog /sys/fs/bpf/tethering/prog_offload_schedcls_tether_downstream4_rawip, ret: 20 (ok)
+15,5595,4482997,-;NetBpfLoad: cs[25].name:schedcls_tether_upstream4_rawip kver in [40e0000,5040000) api level in [3100,65536)
+15,5596,4483001,-;NetBpfLoad: New bpf prog load reusing prog /sys/fs/bpf/tethering/prog_offload_schedcls_tether_upstream4_rawip, ret: 21 (ok)
+15,5597,4483004,-;NetBpfLoad: cs[26].name:schedcls_tether_downstream4_ether kver in [5040000,50a0000) api level in [3100,65536)
+15,5598,4483005,-;NetBpfLoad: cs[27].name:schedcls_tether_upstream4_ether kver in [5040000,50a0000) api level in [3100,65536)
+15,5599,4483006,-;NetBpfLoad: cs[28].name:schedcls_tether_downstream4_ether kver in [40e0000,5040000) api level in [3100,65536)
+15,5600,4483010,-;NetBpfLoad: New bpf prog load reusing prog /sys/fs/bpf/tethering/prog_offload_schedcls_tether_downstream4_ether, ret: 22 (ok)
+15,5601,4483013,-;NetBpfLoad: cs[29].name:schedcls_tether_upstream4_ether kver in [40e0000,5040000) api level in [3100,65536)
+15,5602,4483018,-;NetBpfLoad: New bpf prog load reusing prog /sys/fs/bpf/tethering/prog_offload_schedcls_tether_upstream4_ether, ret: 23 (ok)
+15,5603,4483021,-;NetBpfLoad: cs[30].name:schedcls_tether_downstream4_rawip kver in [4090000,40e0000) api level in [3100,65536)
+15,5604,4483022,-;NetBpfLoad: cs[31].name:schedcls_tether_upstream4_rawip kver in [4090000,40e0000) api level in [3100,65536)
+15,5605,4483023,-;NetBpfLoad: cs[32].name:schedcls_tether_downstream4_ether kver in [4090000,40e0000) api level in [3100,65536)
+15,5606,4483024,-;NetBpfLoad: cs[33].name:schedcls_tether_upstream4_ether kver in [4090000,40e0000) api level in [3100,65536)
+15,5607,4483064,-;NetBpfLoad: Loaded object: /apex/com.android.tethering/etc/bpf/mainline/offload.o, libbpf: 0
+15,5608,4483416,-;NetBpfLoad: Loaded object: /apex/com.android.tethering/etc/bpf/mainline/test.o, libbpf: 1
+15,5612,4483806,-;NetBpfLoad: skipping prog schedcls_ingress6_clat_ether: kernel version 0x4130145 is outside required range [0x4090000, 0x40e0000)
+15,5613,4483809,-;NetBpfLoad: skipping prog schedcls_ingress6_clat_rawip: kernel version 0x4130145 is outside required range [0x4090000, 0x40e0000)
+15,5615,4484852,-;NetBpfLoad: Loaded object: /apex/com.android.tethering/etc/bpf/mainline/clatd.o, libbpf: 1
+15,5616,4485133,-;NetBpfLoad: skipping prog schedcls_set_dscp_ether: kernel version 0x4130145 is outside required range [0x50f0000, 0xffffffff)
+15,5617,4485286,-;NetBpfLoad: Loaded object: /apex/com.android.tethering/etc/bpf/mainline/dscpPolicy.o, libbpf: 1
+15,5618,4486738,-;NetBpfLoad: skipping map sk_storage: kernel version 0x4130145 is outside required range [0x50a0000, 0xffffffff)
+15,5619,4486741,-;NetBpfLoad: skipping map packet_trace_ringbuf: kernel version 0x4130145 is outside required range [0x50a0000, 0xffffffff)
+15,5620,4486745,-;NetBpfLoad: skipping map local_net_note_op_ringbuf: kernel version 0x4130145 is outside required range [0x50a0000, 0xffffffff)
+15,5621,4486747,-;NetBpfLoad: skipping map loopback_access_ringbuf: kernel version 0x4130145 is outside required range [0x50a0000, 0xffffffff)
+15,5622,4486859,-;NetBpfLoad: skipping prog sockops_accecn_option: kernel version 0x4130145 is outside required range [0x6010000, 0x6120000)
+15,5623,4486861,-;NetBpfLoad: skipping prog schedcls_egress_accecn_eth: kernel version 0x4130145 is outside required range [0x6010000, 0x6120000)
+15,5624,4486863,-;NetBpfLoad: skipping prog schedcls_egress_accecn_rawip: kernel version 0x4130145 is outside required range [0x6010000, 0x6120000)
+15,5625,4486864,-;NetBpfLoad: skipping prog ingress_stats: kernel version 0x4130145 is outside required range [0x6120000, 0xffffffff)
+15,5626,4486866,-;NetBpfLoad: skipping prog ingress_stats: kernel version 0x4130145 is outside required range [0x6010000, 0x6120000)
+15,5627,4486867,-;NetBpfLoad: skipping prog ingress_stats: kernel version 0x4130145 is outside required range [0x50a0000, 0x6010000)
+15,5628,4486869,-;NetBpfLoad: skipping prog ingress_stats: kernel version 0x4130145 is outside required range [0x50a0000, 0xffffffff)
+15,5629,4486870,-;NetBpfLoad: skipping prog ingress_stats: kernel version 0x4130145 is outside required range [0x50a0000, 0xffffffff)
+15,5630,4486871,-;NetBpfLoad: skipping prog ingress_stats: kernel version 0x4130145 is outside required range [0x5040000, 0x50a0000)
+15,5631,4486873,-;NetBpfLoad: skipping prog ingress_stats: kernel version 0x4130145 is outside required range [0x50a0000, 0xffffffff)
+15,5632,4486874,-;NetBpfLoad: skipping prog ingress_stats: kernel version 0x4130145 is outside required range [0x5040000, 0xffffffff)
+15,5633,4486876,-;NetBpfLoad: skipping prog ingress_stats: api 3700 is outside required range [3300, 3600)
+15,5634,4486878,-;NetBpfLoad: skipping prog ingress_stats: kernel version 0x4130145 is outside required range [0x4090000, 0x4130000)
+15,5635,4486879,-;NetBpfLoad: skipping prog egress_stats: kernel version 0x4130145 is outside required range [0x6010000, 0xffffffff)
+15,5636,4486880,-;NetBpfLoad: skipping prog egress_stats: kernel version 0x4130145 is outside required range [0x50a0000, 0x6010000)
+15,5637,4486882,-;NetBpfLoad: skipping prog egress_stats: kernel version 0x4130145 is outside required range [0x50a0000, 0xffffffff)
+15,5638,4486883,-;NetBpfLoad: skipping prog egress_stats: kernel version 0x4130145 is outside required range [0x50a0000, 0xffffffff)
+15,5639,4486885,-;NetBpfLoad: skipping prog egress_stats: kernel version 0x4130145 is outside required range [0x5040000, 0x50a0000)
+15,5640,4486886,-;NetBpfLoad: skipping prog egress_stats: kernel version 0x4130145 is outside required range [0x50a0000, 0xffffffff)

@@ -1,0 +1,11 @@
+service virtual-ril-daemon-0 /odm/bin/hw/subsys_daemon -l /odm/lib64/lib-virtual-modem-radio-aidl.so -i 0
+    class main
+    user radio
+    group radio cache inet misc audio log readproc wakelock
+    capabilities BLOCK_SUSPEND NET_ADMIN NET_RAW
+
+service virtual-ril-daemon-1 /odm/bin/hw/subsys_daemon -l /odm/lib64/lib-virtual-modem-radio-aidl.so -i 1
+    class main
+    user radio
+    group radio cache inet misc audio log readproc wakelock
+    capabilities BLOCK_SUSPEND NET_ADMIN NET_RAW

@@ -1,0 +1,63 @@
+  subsys_daemon requires libcutils.so liblog.so libutils.so libmindroid-framework.so libmindroid-app.so libc++.so libc.so libm.so libdl.so
+  commcenterd requires vendor.oplus.hardware.communicationcenter-V2-ndk.so libcutils.so liblog.so libutils.so libcommcenterutils.so libcommcenterfw.so libbinder_ndk.so libdmtp.so libprotobuf-cpp-lite-21.12.so libc++.so libc.so libm.so libdl.so
+lib-virtual-modem-radio-aidl.so odm
+  lib-virtual-modem-radio-aidl.so requires android.hardware.radio.voice-V2-ndk.so android.hardware.radio.data-V2-ndk.so android.hardware.radio.sim-V2-ndk.so android.hardware.radio.messaging-V2-ndk.so android.hardware.radio.modem-V2-ndk.so android.hardware.radio.network-V2-ndk.so android.hardware.radio-V2-ndk.so android.hardware.radio.config-V2-ndk.so vendor.oplus.hardware.communicationcenter-V2-ndk.so liblog.so libutils.so libcutils.so libbinder.so libbinder_ndk.so libhidlbase.so libprotobuf-cpp-lite-21.12.so libsubsys-utils.so libmindroid-framework.so libdmtpclient.so libcommcenterfw.so libcommcenterutils.so libdmtp-protos-lite.so lib-virtual-modem-api.so lib-virtual-modem-protos.so libc++.so libc.so libm.so libdl.so
+libcutils.so platform
+liblog.so platform
+libutils.so platform
+libmindroid-framework.so odm
+  libmindroid-framework.so requires liblog.so libc++.so libc.so libm.so libdl.so
+libmindroid-app.so odm
+  libmindroid-app.so requires libcutils.so liblog.so libutils.so libmindroid-framework.so libc++.so libc.so libm.so libdl.so
+libc++.so platform
+libc.so platform
+libm.so platform
+libdl.so platform
+vendor.oplus.hardware.communicationcenter-V2-ndk.so odm
+  vendor.oplus.hardware.communicationcenter-V2-ndk.so requires libbinder_ndk.so libc++.so libc.so libm.so libdl.so
+libcommcenterutils.so odm
+  libcommcenterutils.so requires libcutils.so liblog.so libutils.so libc++.so libc.so libm.so libdl.so
+libcommcenterfw.so odm
+  libcommcenterfw.so requires libcommcenterutils.so libcutils.so liblog.so libutils.so libc++.so libc.so libm.so libdl.so
+libbinder_ndk.so platform
+libdmtp.so odm
+  libdmtp.so requires vendor.oplus.hardware.communicationcenter-V2-ndk.so libcommcenterutils.so libcutils.so liblog.so libutils.so libcommcenterfw.so libbinder_ndk.so libprotobuf-cpp-lite-21.12.so libc++.so libc.so libm.so libdl.so
+libprotobuf-cpp-lite-21.12.so vendor
+  libprotobuf-cpp-lite-21.12.so requires liblog.so libc++.so libc.so libm.so libdl.so
+android.hardware.radio.voice-V2-ndk.so odm
+  android.hardware.radio.voice-V2-ndk.so requires libbinder_ndk.so android.hardware.radio-V2-ndk.so libc++.so libc.so libm.so libdl.so
+android.hardware.radio.data-V2-ndk.so odm
+  android.hardware.radio.data-V2-ndk.so requires libbinder_ndk.so android.hardware.radio-V2-ndk.so libc++.so libc.so libm.so libdl.so
+android.hardware.radio.sim-V2-ndk.so odm
+  android.hardware.radio.sim-V2-ndk.so requires libbinder_ndk.so android.hardware.radio-V2-ndk.so android.hardware.radio.config-V2-ndk.so libc++.so libc.so libm.so libdl.so
+android.hardware.radio.messaging-V2-ndk.so odm
+  android.hardware.radio.messaging-V2-ndk.so requires libbinder_ndk.so android.hardware.radio-V2-ndk.so libc++.so libc.so libm.so libdl.so
+android.hardware.radio.modem-V2-ndk.so odm
+  android.hardware.radio.modem-V2-ndk.so requires libbinder_ndk.so android.hardware.radio-V2-ndk.so libc++.so libc.so libm.so libdl.so
+android.hardware.radio.network-V2-ndk.so odm
+  android.hardware.radio.network-V2-ndk.so requires libbinder_ndk.so android.hardware.radio-V2-ndk.so libc++.so libc.so libm.so libdl.so
+android.hardware.radio-V2-ndk.so odm
+  android.hardware.radio-V2-ndk.so requires libbinder_ndk.so libc++.so libc.so libm.so libdl.so
+android.hardware.radio.config-V2-ndk.so odm
+  android.hardware.radio.config-V2-ndk.so requires libbinder_ndk.so android.hardware.radio-V2-ndk.so libc++.so libc.so libm.so libdl.so
+libbinder.so platform
+libhidlbase.so platform
+libsubsys-utils.so odm
+  libsubsys-utils.so requires libcutils.so liblog.so libutils.so libbinder_ndk.so libmindroid-framework.so libc++.so libc.so libm.so libdl.so
+libdmtpclient.so odm
+  libdmtpclient.so requires vendor.oplus.hardware.communicationcenter-V2-ndk.so libcommcenterutils.so libcutils.so liblog.so libbinder_ndk.so libutils.so libprotobuf-cpp-lite-21.12.so libdmtp-protos-lite.so libcommcenterfw.so libc++.so libc.so libm.so libdl.so
+libdmtp-protos-lite.so odm
+  libdmtp-protos-lite.so requires libprotobuf-cpp-lite-21.12.so libc++.so libc.so libm.so libdl.so
+lib-virtual-modem-api.so odm
+  lib-virtual-modem-api.so requires vendor.oplus.hardware.communicationcenter-V2-ndk.so liblog.so libutils.so libcutils.so libbinder.so libbinder_ndk.so libhidlbase.so libhidltransport.so libhardware_legacy.so libhwbinder.so libprotobuf-cpp-lite-21.12.so libsubsys-utils.so libmindroid-framework.so libdmtpclient.so libcommcenterutils.so libcommcenterfw.so libdmtp-protos-lite.so lib-virtual-modem-protos.so libc++.so libc.so libm.so libdl.so
+lib-virtual-modem-protos.so odm
+  lib-virtual-modem-protos.so requires libprotobuf-cpp-lite-21.12.so libc++.so libc.so libm.so libdl.so
+libhidltransport.so vendor
+  libhidltransport.so requires libc++.so libc.so libm.so libdl.so
+libhardware_legacy.so vendor
+  libhardware_legacy.so requires libbase.so libbinder_ndk.so libcutils.so libhidlbase.so liblog.so libutils.so android.system.suspend-V1-ndk.so libc++.so libc.so libm.so libdl.so
+libhwbinder.so vendor
+  libhwbinder.so requires libc++.so libc.so libm.so libdl.so
+libbase.so platform
+android.system.suspend-V1-ndk.so vendor
+  android.system.suspend-V1-ndk.so requires libbinder_ndk.so libc++.so libc.so libm.so libdl.so

@@ -1,0 +1,9 @@
+--events
+PASS: BPF output, record read, alias, and consumption
+PASS: ring map creation, info, mmap protection, and empty poll
+--submit
+PASS: BPF output, record read, alias, and consumption
+PASS: ring map creation, info, mmap protection, and empty poll
+--discard
+PASS: BPF output, record read, alias, and consumption
+PASS: ring map creation, info, mmap protection, and empty poll

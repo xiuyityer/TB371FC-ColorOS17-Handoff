@@ -1,0 +1,15 @@
+  CC [M]  $WORKSPACE/c17-port/worklog/runs/0009-c17-kernel-ringbuf/kernel-build-volume/erofs-rebuild/super.o
+  CC [M]  $WORKSPACE/c17-port/worklog/runs/0009-c17-kernel-ringbuf/kernel-build-volume/erofs-rebuild/inode.o
+  CC [M]  $WORKSPACE/c17-port/worklog/runs/0009-c17-kernel-ringbuf/kernel-build-volume/erofs-rebuild/data.o
+  CC [M]  $WORKSPACE/c17-port/worklog/runs/0009-c17-kernel-ringbuf/kernel-build-volume/erofs-rebuild/namei.o
+  CC [M]  $WORKSPACE/c17-port/worklog/runs/0009-c17-kernel-ringbuf/kernel-build-volume/erofs-rebuild/dir.o
+  CC [M]  $WORKSPACE/c17-port/worklog/runs/0009-c17-kernel-ringbuf/kernel-build-volume/erofs-rebuild/utils.o
+  CC [M]  $WORKSPACE/c17-port/worklog/runs/0009-c17-kernel-ringbuf/kernel-build-volume/erofs-rebuild/pcpubuf.o
+  CC [M]  $WORKSPACE/c17-port/worklog/runs/0009-c17-kernel-ringbuf/kernel-build-volume/erofs-rebuild/xattr.o
+  CC [M]  $WORKSPACE/c17-port/worklog/runs/0009-c17-kernel-ringbuf/kernel-build-volume/erofs-rebuild/decompressor.o
+  CC [M]  $WORKSPACE/c17-port/worklog/runs/0009-c17-kernel-ringbuf/kernel-build-volume/erofs-rebuild/zmap.o
+  CC [M]  $WORKSPACE/c17-port/worklog/runs/0009-c17-kernel-ringbuf/kernel-build-volume/erofs-rebuild/zdata.o
+  CC [M]  $WORKSPACE/c17-port/worklog/runs/0009-c17-kernel-ringbuf/kernel-build-volume/erofs-rebuild/erofs_lz4_decompress.o
+  LD [M]  $WORKSPACE/c17-port/worklog/runs/0009-c17-kernel-ringbuf/kernel-build-volume/erofs-rebuild/erofs.o
+  CC      $WORKSPACE/c17-port/worklog/runs/0009-c17-kernel-ringbuf/kernel-build-volume/erofs-rebuild/erofs.mod.o
+  LD [M]  $WORKSPACE/c17-port/worklog/runs/0009-c17-kernel-ringbuf/kernel-build-volume/erofs-rebuild/erofs.ko

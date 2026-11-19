@@ -1,0 +1,26 @@
+on post-fs-data && property:ro.product.board=spinel && property:ro.build.version.sdk=37
+    insmod /vendor/lib64/r94-commcenter/oplus_vnet.ko numvnets=3
+
+service r94-commcenterd /vendor/bin/r94-commcenter/commcenterd
+    class main
+    user root
+    group system radio inet log
+    seclabel u:r:r94_commcenterd:s0
+    setenv LD_LIBRARY_PATH /vendor/lib64/r94-commcenter
+    interface aidl vendor.oplus.hardware.communicationcenter.IDmtpService/default
+
+service c17-virtual-ril-0 /vendor/bin/r94-commcenter/subsys_daemon -l /vendor/lib64/r94-commcenter/lib-virtual-modem-radio-aidl.so -i 0
+    class main
+    user radio
+    group radio cache inet misc audio log readproc wakelock
+    capabilities BLOCK_SUSPEND NET_ADMIN NET_RAW
+    seclabel u:r:rild:s0
+    setenv LD_LIBRARY_PATH /vendor/lib64/r94-commcenter
+
+service c17-virtual-ril-1 /vendor/bin/r94-commcenter/subsys_daemon -l /vendor/lib64/r94-commcenter/lib-virtual-modem-radio-aidl.so -i 1
+    class main
+    user radio
+    group radio cache inet misc audio log readproc wakelock
+    capabilities BLOCK_SUSPEND NET_ADMIN NET_RAW
+    seclabel u:r:rild:s0
+    setenv LD_LIBRARY_PATH /vendor/lib64/r94-commcenter

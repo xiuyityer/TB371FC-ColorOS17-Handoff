@@ -1,0 +1,12 @@
+.DS_Store
+__pycache__/
+images/
+flash-state/
+*.img
+*.apk
+*.jar
+*.ko
+*.so
+*.zip
+*.tar.gz
+*.sparseimage

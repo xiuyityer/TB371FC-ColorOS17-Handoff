@@ -1,0 +1,358 @@
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -127,6 +127,8 @@
+ 	BPF_MAP_TYPE_SOCKHASH,
+ 	BPF_MAP_TYPE_CGROUP_STORAGE,
+ 	BPF_MAP_TYPE_REUSEPORT_SOCKARRAY,
++	/* Keep the Linux UAPI number, including unimplemented types. */
++	BPF_MAP_TYPE_RINGBUF = 27,
+ };
+ 
+ enum bpf_prog_type {
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -127,6 +127,8 @@
+ 	BPF_MAP_TYPE_SOCKHASH,
+ 	BPF_MAP_TYPE_CGROUP_STORAGE,
+ 	BPF_MAP_TYPE_REUSEPORT_SOCKARRAY,
++	/* Keep the Linux UAPI number, including unimplemented types. */
++	BPF_MAP_TYPE_RINGBUF = 27,
+ };
+ 
+ enum bpf_prog_type {
+--- a/include/linux/bpf_types.h
++++ b/include/linux/bpf_types.h
+@@ -34,6 +34,7 @@
+ #endif
+ 
+ BPF_MAP_TYPE(BPF_MAP_TYPE_ARRAY, array_map_ops)
++BPF_MAP_TYPE(BPF_MAP_TYPE_RINGBUF, ringbuf_map_ops)
+ BPF_MAP_TYPE(BPF_MAP_TYPE_PERCPU_ARRAY, percpu_array_map_ops)
+ BPF_MAP_TYPE(BPF_MAP_TYPE_PROG_ARRAY, prog_array_map_ops)
+ BPF_MAP_TYPE(BPF_MAP_TYPE_PERF_EVENT_ARRAY, perf_event_array_map_ops)
+--- a/kernel/bpf/Makefile
++++ b/kernel/bpf/Makefile
+@@ -2,7 +2,7 @@
+ obj-y := core.o
+ CFLAGS_core.o += $(call cc-disable-warning, override-init)
+ 
+-obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o tnum.o
++obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o tnum.o ringbuf.o
+ obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o bpf_lru_list.o lpm_trie.o map_in_map.o
+ obj-$(CONFIG_BPF_SYSCALL) += local_storage.o
+ obj-$(CONFIG_BPF_SYSCALL) += disasm.o
+--- /dev/null
++++ b/kernel/bpf/ringbuf.c
+@@ -0,0 +1,312 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/* Map and userspace consumer ABI adapted from the Android 5.10 ring buffer
++ * implementation. BPF producer helpers are integrated with the verifier
++ * separately.
++ */
++#include <linux/bpf.h>
++#include <linux/capability.h>
++#include <linux/err.h>
++#include <linux/irq_work.h>
++#include <linux/slab.h>
++#include <linux/mm.h>
++#include <linux/vmalloc.h>
++#include <linux/wait.h>
++#include <linux/poll.h>
++#include <linux/kmemleak.h>
++
++#define RINGBUF_CREATE_FLAG_MASK (BPF_F_NUMA_NODE)
++
++/* non-mmap()'able part of bpf_ringbuf (everything up to consumer page) */
++#define RINGBUF_PGOFF \
++	(offsetof(struct bpf_ringbuf, consumer_pos) >> PAGE_SHIFT)
++/* consumer page and producer page */
++#define RINGBUF_POS_PAGES 2
++
++/* Maximum size of ring buffer area is limited by 32-bit page offset within
++ * record header, counted in pages. Reserve 8 bits for extensibility, and take
++ * into account few extra pages for consumer/producer pages and
++ * non-mmap()'able parts. This gives 64GB limit, which seems plenty for single
++ * ring buffer.
++ */
++#define RINGBUF_MAX_DATA_SZ \
++	(((1ULL << 24) - RINGBUF_POS_PAGES - RINGBUF_PGOFF) * PAGE_SIZE)
++
++struct bpf_ringbuf {
++	wait_queue_head_t waitq;
++	struct irq_work work;
++	u64 mask;
++	struct page **pages;
++	int nr_pages;
++	spinlock_t spinlock ____cacheline_aligned_in_smp;
++	/* Consumer and producer counters are put into separate pages to allow
++	 * mapping consumer page as r/w, but restrict producer page to r/o.
++	 * This protects producer position from being modified by user-space
++	 * application and ruining in-kernel position tracking.
++	 * Note that the pending counter is placed in the same
++	 * page as the producer, so that it shares the same cache line.
++	 */
++	unsigned long consumer_pos __aligned(PAGE_SIZE);
++	unsigned long producer_pos __aligned(PAGE_SIZE);
++	unsigned long pending_pos;
++	char data[] __aligned(PAGE_SIZE);
++};
++
++struct bpf_ringbuf_map {
++	struct bpf_map map;
++	struct bpf_ringbuf *rb;
++};
++
++/* 8-byte ring buffer record header structure */
++struct bpf_ringbuf_hdr {
++	u32 len;
++	u32 pg_off;
++};
++
++static struct bpf_ringbuf *bpf_ringbuf_area_alloc(size_t data_sz, int numa_node)
++{
++	const gfp_t flags = GFP_KERNEL | __GFP_RETRY_MAYFAIL | __GFP_NOWARN |
++			    __GFP_ZERO;
++	int nr_meta_pages = RINGBUF_PGOFF + RINGBUF_POS_PAGES;
++	int nr_data_pages = data_sz >> PAGE_SHIFT;
++	int nr_pages = nr_meta_pages + nr_data_pages;
++	struct page **pages, *page;
++	struct bpf_ringbuf *rb;
++	size_t array_size;
++	int i;
++
++	/* Each data page is mapped twice to allow "virtual"
++	 * continuous read of samples wrapping around the end of ring
++	 * buffer area:
++	 * ------------------------------------------------------
++	 * | meta pages |  real data pages  |  same data pages  |
++	 * ------------------------------------------------------
++	 * |            | 1 2 3 4 5 6 7 8 9 | 1 2 3 4 5 6 7 8 9 |
++	 * ------------------------------------------------------
++	 * |            | TA             DA | TA             DA |
++	 * ------------------------------------------------------
++	 *                               ^^^^^^^
++	 *                                  |
++	 * Here, no need to worry about special handling of wrapped-around
++	 * data due to double-mapped data pages. This works both in kernel and
++	 * when mmap()'ed in user-space, simplifying both kernel and
++	 * user-space implementations significantly.
++	 */
++	array_size = (nr_meta_pages + 2 * nr_data_pages) * sizeof(*pages);
++	if (array_size > PAGE_SIZE)
++		pages = vmalloc_node(array_size, numa_node);
++	else
++		pages = kmalloc_node(array_size, flags, numa_node);
++	if (!pages)
++		return NULL;
++
++	for (i = 0; i < nr_pages; i++) {
++		page = alloc_pages_node(numa_node, flags, 0);
++		if (!page) {
++			nr_pages = i;
++			goto err_free_pages;
++		}
++		pages[i] = page;
++		if (i >= nr_meta_pages)
++			pages[nr_data_pages + i] = page;
++	}
++
++	rb = vmap(pages, nr_meta_pages + 2 * nr_data_pages,
++		  VM_MAP | VM_USERMAP, PAGE_KERNEL);
++	if (rb) {
++		kmemleak_not_leak(pages);
++		rb->pages = pages;
++		rb->nr_pages = nr_pages;
++		return rb;
++	}
++
++err_free_pages:
++	for (i = 0; i < nr_pages; i++)
++		__free_page(pages[i]);
++	kvfree(pages);
++	return NULL;
++}
++
++static void bpf_ringbuf_notify(struct irq_work *work)
++{
++	struct bpf_ringbuf *rb = container_of(work, struct bpf_ringbuf, work);
++
++	wake_up_all(&rb->waitq);
++}
++
++static struct bpf_ringbuf *bpf_ringbuf_alloc(size_t data_sz, int numa_node)
++{
++	struct bpf_ringbuf *rb;
++
++	rb = bpf_ringbuf_area_alloc(data_sz, numa_node);
++	if (!rb)
++		return ERR_PTR(-ENOMEM);
++
++	spin_lock_init(&rb->spinlock);
++	init_waitqueue_head(&rb->waitq);
++	init_irq_work(&rb->work, bpf_ringbuf_notify);
++
++	rb->mask = data_sz - 1;
++	rb->consumer_pos = 0;
++	rb->producer_pos = 0;
++	rb->pending_pos = 0;
++
++	return rb;
++}
++
++static struct bpf_map *ringbuf_map_alloc(union bpf_attr *attr)
++{
++	struct bpf_ringbuf_map *rb_map;
++	u32 data_pages, metadata_pages, charged_pages;
++	size_t page_array_bytes;
++	int err;
++
++	if (!capable(CAP_SYS_ADMIN))
++		return ERR_PTR(-EPERM);
++
++	if (attr->map_flags & ~RINGBUF_CREATE_FLAG_MASK)
++		return ERR_PTR(-EINVAL);
++
++	if (attr->key_size || attr->value_size ||
++	    !is_power_of_2(attr->max_entries) ||
++	    !PAGE_ALIGNED(attr->max_entries))
++		return ERR_PTR(-EINVAL);
++
++#ifdef CONFIG_64BIT
++	/* on 32-bit arch, it's impossible to overflow record's hdr->pgoff */
++	if (attr->max_entries > RINGBUF_MAX_DATA_SZ)
++		return ERR_PTR(-E2BIG);
++#endif
++
++	data_pages = attr->max_entries >> PAGE_SHIFT;
++	metadata_pages = RINGBUF_PGOFF + RINGBUF_POS_PAGES;
++	page_array_bytes = (metadata_pages + 2 * data_pages) *
++			   sizeof(struct page *);
++	/* The aliases do not allocate pages, but their descriptors do. */
++	charged_pages = metadata_pages + data_pages +
++			DIV_ROUND_UP(page_array_bytes + sizeof(*rb_map),
++				     PAGE_SIZE);
++	err = bpf_map_precharge_memlock(charged_pages);
++	if (err)
++		return ERR_PTR(err);
++
++	rb_map = kzalloc(sizeof(*rb_map), GFP_USER);
++	if (!rb_map)
++		return ERR_PTR(-ENOMEM);
++
++	bpf_map_init_from_attr(&rb_map->map, attr);
++	rb_map->map.pages = charged_pages;
++
++	rb_map->rb = bpf_ringbuf_alloc(attr->max_entries, rb_map->map.numa_node);
++	if (IS_ERR(rb_map->rb)) {
++		err = PTR_ERR(rb_map->rb);
++		kfree(rb_map);
++		return ERR_PTR(err);
++	}
++
++	return &rb_map->map;
++}
++
++static void bpf_ringbuf_free(struct bpf_ringbuf *rb)
++{
++	/* copy pages pointer and nr_pages to local variable, as we are going
++	 * to unmap rb itself with vunmap() below
++	 */
++	struct page **pages = rb->pages;
++	int i, nr_pages = rb->nr_pages;
++
++	irq_work_sync(&rb->work);
++
++	vunmap(rb);
++	for (i = 0; i < nr_pages; i++)
++		__free_page(pages[i]);
++	kvfree(pages);
++}
++
++static void ringbuf_map_free(struct bpf_map *map)
++{
++	struct bpf_ringbuf_map *rb_map;
++
++	rb_map = container_of(map, struct bpf_ringbuf_map, map);
++	bpf_ringbuf_free(rb_map->rb);
++	kfree(rb_map);
++}
++
++static void *ringbuf_map_lookup_elem(struct bpf_map *map, void *key)
++{
++	return ERR_PTR(-ENOTSUPP);
++}
++
++static int ringbuf_map_update_elem(struct bpf_map *map, void *key, void *value,
++				   u64 flags)
++{
++	return -ENOTSUPP;
++}
++
++static int ringbuf_map_delete_elem(struct bpf_map *map, void *key)
++{
++	return -ENOTSUPP;
++}
++
++static int ringbuf_map_get_next_key(struct bpf_map *map, void *key,
++				    void *next_key)
++{
++	return -ENOTSUPP;
++}
++
++static int ringbuf_map_mmap(struct bpf_map *map, struct vm_area_struct *vma)
++{
++	struct bpf_ringbuf_map *rb_map;
++	unsigned long map_pages, requested_pages;
++
++	rb_map = container_of(map, struct bpf_ringbuf_map, map);
++	map_pages = RINGBUF_POS_PAGES +
++		    2 * ((rb_map->rb->mask + 1) >> PAGE_SHIFT);
++	requested_pages = (vma->vm_end - vma->vm_start) >> PAGE_SHIFT;
++	if (vma->vm_pgoff >= map_pages ||
++	    requested_pages > map_pages - vma->vm_pgoff)
++		return -EINVAL;
++
++	if (vma->vm_flags & VM_WRITE) {
++		/* allow writable mapping for the consumer_pos only */
++		if (vma->vm_pgoff != 0 || vma->vm_end - vma->vm_start != PAGE_SIZE)
++			return -EPERM;
++	} else {
++		vma->vm_flags &= ~VM_MAYWRITE;
++	}
++	/* remap_vmalloc_range() checks size and offset constraints */
++	return remap_vmalloc_range(vma, rb_map->rb,
++				   vma->vm_pgoff + RINGBUF_PGOFF);
++}
++
++static unsigned long ringbuf_avail_data_sz(struct bpf_ringbuf *rb)
++{
++	unsigned long cons_pos, prod_pos;
++
++	cons_pos = smp_load_acquire(&rb->consumer_pos);
++	prod_pos = smp_load_acquire(&rb->producer_pos);
++	return prod_pos - cons_pos;
++}
++
++static __poll_t ringbuf_map_poll(struct bpf_map *map, struct file *filp,
++				 struct poll_table_struct *pts)
++{
++	struct bpf_ringbuf_map *rb_map;
++
++	rb_map = container_of(map, struct bpf_ringbuf_map, map);
++	poll_wait(filp, &rb_map->rb->waitq, pts);
++
++	if (ringbuf_avail_data_sz(rb_map->rb))
++		return EPOLLIN | EPOLLRDNORM;
++	return 0;
++}
++
++const struct bpf_map_ops ringbuf_map_ops = {
++	.map_alloc = ringbuf_map_alloc,
++	.map_free = ringbuf_map_free,
++	.map_mmap = ringbuf_map_mmap,
++	.map_poll = ringbuf_map_poll,
++	.map_lookup_elem = ringbuf_map_lookup_elem,
++	.map_update_elem = ringbuf_map_update_elem,
++	.map_delete_elem = ringbuf_map_delete_elem,
++	.map_get_next_key = ringbuf_map_get_next_key,
++};

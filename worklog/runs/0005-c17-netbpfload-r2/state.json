@@ -1,0 +1,23 @@
+{
+  "state": "ANALYZED_BPFLOADER_PASS_NETD1SHOT_NEW_FIRST_FATAL",
+  "serial": "DEVICE_SERIAL",
+  "slot": "a",
+  "recovery": "original TWRP 4.19.157-perf+ #1",
+  "source_system_sha256": "decc4b0fbab62d00bb3131f9acfcc48bd127a8cc181b4433492245de8b22e9af",
+  "target_system_sha256": "a69028ee0f2b0945a8ff4f945109c3e4ef62136616e27aad2b247d35edf8dc7f",
+  "system_bytes": 954871808,
+  "system_dm_sectors": 1864984,
+  "boot_normalized_zero_log_window_sha256": "1bb51df0c5064cf0b08c775b6f9c23a30b74e109a46c603a6a7c291147fc80b1",
+  "bootlog_raw_sha256": "9a900801c2b18249ce8ddabeb182a2d5b481a351bf311d31f442a065e3c04a753ef5a3",
+  "bootlog_crc_valid": true,
+  "bootlog_producer_finished": false,
+  "netbpfload_success": true,
+  "c17_bpfloader_exit_status": 0,
+  "new_first_fatal": "netd1shot SIGABRT",
+  "reboot_reason": "reboot,netd1shot-fail",
+  "super_changed": false,
+  "other_logical_partitions_changed": false,
+  "recovery_changed": false,
+  "hardware_test_pass": false,
+  "superseded_by_run": "0006-c17-netd-ldpreload-diagnostic"
+}

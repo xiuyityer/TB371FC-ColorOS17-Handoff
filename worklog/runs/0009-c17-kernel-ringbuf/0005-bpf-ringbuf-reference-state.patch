@@ -1,0 +1,121 @@
+--- a/include/linux/bpf_verifier.h
++++ b/include/linux/bpf_verifier.h
+@@ -139,6 +139,9 @@
+ 	/* call stack tracking */
+ 	struct bpf_func_state *frame[MAX_CALL_FRAMES];
+ 	u32 curframe;
++	/* Ring reservations belong to the whole execution path. */
++	u32 *ringbuf_refs;
++	u32 ringbuf_ref_count;
+ 	bool speculative;
+ };
+ 
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -435,6 +435,9 @@
+ 		free_func_state(state->frame[i]);
+ 		state->frame[i] = NULL;
+ 	}
++	kfree(state->ringbuf_refs);
++	state->ringbuf_refs = NULL;
++	state->ringbuf_ref_count = 0;
+ 	if (free_self)
+ 		kfree(state);
+ }
+@@ -458,7 +461,19 @@
+ 			       const struct bpf_verifier_state *src)
+ {
+ 	struct bpf_func_state *dst;
++	u32 *ringbuf_refs = NULL;
+ 	int i, err;
++
++	if (src->ringbuf_ref_count) {
++		ringbuf_refs = kmemdup(src->ringbuf_refs,
++				      array_size(src->ringbuf_ref_count, sizeof(*ringbuf_refs)),
++				      GFP_KERNEL);
++		if (!ringbuf_refs)
++			return -ENOMEM;
++	}
++	kfree(dst_state->ringbuf_refs);
++	dst_state->ringbuf_refs = ringbuf_refs;
++	dst_state->ringbuf_ref_count = src->ringbuf_ref_count;
+ 
+ 	/* if dst has more stack frames then src frame, free them */
+ 	for (i = src->curframe + 1; i <= dst_state->curframe; i++) {
+@@ -2336,12 +2351,26 @@
+ 		__clear_all_pkt_pointers(env, vstate->frame[i]);
+ }
+ 
++static int check_ringbuf_refs_empty(struct bpf_verifier_env *env,
++				   const char *operation)
++{
++	if (!env->cur_state->ringbuf_ref_count)
++		return 0;
++
++	verbose(env, "%s with outstanding ringbuf reservations\n", operation);
++	return -EINVAL;
++}
++
+ static int check_func_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
+ 			   int *insn_idx)
+ {
+ 	struct bpf_verifier_state *state = env->cur_state;
+ 	struct bpf_func_state *caller, *callee;
+-	int i, subprog, target_insn;
++	int i, subprog, target_insn, err;
++
++	err = check_ringbuf_refs_empty(env, "BPF-to-BPF call");
++	if (err)
++		return err;
+ 
+ 	if (state->curframe + 1 >= MAX_CALL_FRAMES) {
+ 		verbose(env, "the call stack of %d frames is too deep\n",
+@@ -2516,6 +2545,12 @@
+ 	struct bpf_call_arg_meta meta;
+ 	bool changes_data;
+ 	int i, err;
++
++	if (func_id == BPF_FUNC_tail_call) {
++		err = check_ringbuf_refs_empty(env, "tail call");
++		if (err)
++			return err;
++	}
+ 
+ 	/* find function prototype */
+ 	if (func_id < 0 || func_id >= __BPF_FUNC_MAX_ID) {
+@@ -4472,6 +4507,10 @@
+ 	static const int ctx_reg = BPF_REG_6;
+ 	u8 mode = BPF_MODE(insn->code);
+ 	int i, err;
++
++	err = check_ringbuf_refs_empty(env, "BPF_LD_ABS/IND");
++	if (err)
++		return err;
+ 
+ 	if (!may_access_skb(env->prog->type)) {
+ 		verbose(env, "BPF_LD_[ABS|IND] instructions not allowed for this program type\n");
+@@ -5049,6 +5088,13 @@
+ 	if (old->curframe != cur->curframe)
+ 		return false;
+ 
++	/* Do not prune a path with outstanding reservations. A register may
++	 * be dead for liveness tracking while its reservation still needs
++	 * to be submitted or discarded.
++	 */
++	if (old->ringbuf_ref_count || cur->ringbuf_ref_count)
++		return false;
++
+ 	/* Verification state from speculative execution simulation
+ 	 * must never prune a non-speculative execution one.
+ 	 */
+@@ -5459,6 +5505,10 @@
+ 					verbose(env, "BPF_EXIT uses reserved fields\n");
+ 					return -EINVAL;
+ 				}
++
++				err = check_ringbuf_refs_empty(env, "program exit");
++				if (err)
++					return err;
+ 
+ 				if (state->curframe) {
+ 					/* exit from nested function */

@@ -1,0 +1,88 @@
+4,2001,1612570,-;erofs: loading out-of-tree module taints kernel.
+6,2155,1786442,-;erofs: (device dm-0): mounted with opts: , root inode @ nid 37.
+6,2159,1787217,-;erofs: (device dm-1): mounted with opts: , root inode @ nid 37.
+6,2162,1787558,-;erofs: (device dm-2): mounted with opts: , root inode @ nid 41.
+6,2171,1790362,-;erofs: (device dm-5): mounted with opts: , root inode @ nid 37.
+6,2174,1790597,-;erofs: (device dm-6): mounted with opts: , root inode @ nid 37.
+6,2177,1790896,-;erofs: (device dm-7): mounted with opts: , root inode @ nid 39.
+6,2180,1791199,-;erofs: (device dm-8): mounted with opts: , root inode @ nid 38.
+6,2183,1791448,-;erofs: (device dm-9): mounted with opts: , root inode @ nid 38.
+6,2186,1791652,-;erofs: (device dm-10): mounted with opts: , root inode @ nid 38.
+6,2189,1791850,-;erofs: (device dm-11): mounted with opts: , root inode @ nid 38.
+6,2192,1792095,-;erofs: (device dm-12): mounted with opts: , root inode @ nid 38.
+14,2201,1853682,-;init: Opening SELinux policy
+14,2203,1854468,-;init: /system/etc/selinux/plat_sepolicy_and_mapping.sha256 and /odm/etc/selinux/precompiled_sepolicy.plat_sepolicy_and_mapping.sha256 differ
+14,2204,1854472,-;init: Compiling SELinux policy
+14,2209,1857013,-;init: Missing /system/etc/selinux/plat_sepolicy_genfs_202404.cil; skipping
+14,2224,2673930,-;init: Loading SELinux policy
+6,2225,2707442,-;SELinux:  policy capability network_peer_controls=1
+6,2226,2707448,-;SELinux:  policy capability open_perms=1
+6,2227,2707450,-;SELinux:  policy capability extended_socket_class=1
+6,2228,2707452,-;SELinux:  policy capability always_check_network=0
+6,2229,2707454,-;SELinux:  policy capability cgroup_seclabel=0
+6,2230,2707456,-;SELinux:  policy capability nnp_nosuid_transition=1
+6,2463,2820910,-;KernelSU: SELinux permissive or disabled, apply rules!
+14,2582,2843420,-;init: Parsing file /system/etc/init/netbpfload.rc...
+14,2698,2854261,-;init: Parsing file /system_ext/etc/init/self_init_abnormal_reboot_record.rc...
+6,3024,3179533,-;erofs: (device loop3): mounted with opts: , root inode @ nid 39.
+6,3025,3179820,-;erofs: (device loop4): mounted with opts: , root inode @ nid 38.
+6,3029,3187570,-;erofs: (device loop0): mounted with opts: , root inode @ nid 39.
+6,3031,3193748,-;erofs: (device loop2): mounted with opts: , root inode @ nid 39.
+14,4250,3699097,-;init: not find persist prop: persist.sys.oppo.reboot
+6,4428,3735625,-;erofs: (device loop12): mounted with opts: , root inode @ nid 38.
+6,4435,3736860,-;erofs: (device loop11): mounted with opts: , root inode @ nid 38.
+6,4445,3737380,-;erofs: (device loop14): mounted with opts: , root inode @ nid 38.
+6,4463,3738967,-;erofs: (device loop15): mounted with opts: , root inode @ nid 38.
+6,4466,3739165,-;erofs: (device loop16): mounted with opts: , root inode @ nid 38.
+6,4488,3741400,-;erofs: (device loop20): mounted with opts: , root inode @ nid 38.
+6,4489,3742179,-;erofs: (device loop18): mounted with opts: , root inode @ nid 38.
+6,4490,3742362,-;erofs: (device loop21): mounted with opts: , root inode @ nid 39.
+6,4497,3744058,-;erofs: (device loop17): mounted with opts: , root inode @ nid 38.
+6,4498,3744101,-;erofs: (device loop24): mounted with opts: , root inode @ nid 39.
+6,4501,3745194,-;erofs: (device loop23): mounted with opts: , root inode @ nid 38.
+6,4502,3745225,-;erofs: (device loop22): mounted with opts: , root inode @ nid 39.
+6,4503,3745342,-;erofs: (device loop19): mounted with opts: , root inode @ nid 39.
+6,4504,3745347,-;erofs: (device loop25): mounted with opts: , root inode @ nid 39.
+6,4515,3746966,-;erofs: (device loop26): mounted with opts: , root inode @ nid 38.
+6,4516,3747021,-;erofs: (device loop27): mounted with opts: , root inode @ nid 38.
+6,4519,3747418,-;erofs: (device loop29): mounted with opts: , root inode @ nid 36.
+6,4522,3748142,-;erofs: (device loop28): mounted with opts: , root inode @ nid 38.
+6,4528,3749649,-;erofs: (device loop30): mounted with opts: , root inode @ nid 39.
+6,4529,3749921,-;erofs: (device loop31): mounted with opts: , root inode @ nid 39.
+6,4542,3751491,-;erofs: (device loop33): mounted with opts: , root inode @ nid 38.
+6,4547,3752932,-;erofs: (device loop32): mounted with opts: , root inode @ nid 39.
+6,4548,3752934,-;erofs: (device loop34): mounted with opts: , root inode @ nid 38.
+6,4550,3753091,-;erofs: (device loop35): mounted with opts: , root inode @ nid 38.
+6,4552,3753207,-;erofs: (device loop36): mounted with opts: , root inode @ nid 38.
+6,4559,3754152,-;erofs: (device loop37): mounted with opts: , root inode @ nid 38.
+6,4560,3754476,-;erofs: (device loop38): mounted with opts: , root inode @ nid 41.
+6,4561,3754737,-;erofs: (device loop40): mounted with opts: , root inode @ nid 39.
+6,4570,3756434,-;erofs: (device loop39): mounted with opts: , root inode @ nid 38.
+6,4571,3756442,-;erofs: (device loop43): mounted with opts: , root inode @ nid 38.
+6,4573,3756528,-;erofs: (device loop41): mounted with opts: , root inode @ nid 38.
+6,4575,3756667,-;erofs: (device loop42): mounted with opts: , root inode @ nid 38.
+6,4591,3758894,-;erofs: (device loop45): mounted with opts: , root inode @ nid 38.
+6,4593,3759039,-;erofs: (device loop44): mounted with opts: , root inode @ nid 38.
+6,4595,3759145,-;erofs: (device loop46): mounted with opts: , root inode @ nid 40.
+6,4598,3759716,-;erofs: (device loop48): mounted with opts: , root inode @ nid 38.
+6,4601,3760769,-;erofs: (device loop49): mounted with opts: , root inode @ nid 38.
+14,4654,3790224,-;init: Parsing file /apex/com.android.tethering/etc/netbpfload.35rc...
+6,4784,4351797,-;KernelSU: SELinux permissive or disabled when handle policy!
+14,5524,4478906,-;init: processing action (load-bpf-programs) from (/system/etc/init/netbpfload.rc:38)
+14,5542,4494663,-;NetBpfLoad: /system/bin/c17-netbpfload api:37/3700 kver:4130145 (64-on-aarch64:4k) libbpf: v1.4 uid:0 rc:01 user:100
+14,5543,4494921,-;NetBpfLoad: Tethering APEX version 370399999
+14,5544,4497182,-;NetBpfLoad: detected 5 of 5: 2026Q2 api:37.0.0=3700
+11,5545,4497431,-;NetBpfLoad: file /apex/com.android.tethering/etc/bpf/mainline/offload.o is on device 1960, while we are on device 64512
+11,5560,4513230,-;init: Service c17_bpfloader has 'reboot_on_failure' option and failed, shutting down system.
+14,5561,4513602,-;init: Untracked process (pid: 1036 name: (c17-netbpfload) ppid: 1 pgrp: 1025 state: Z) received SIGKILL
+14,5562,4513610,-;init: Untracked process (pid: 1036 name: (c17-netbpfload) ppid: 1 pgrp: 1025 state: Z) did not have an associated service entry and will not be reaped
+14,5565,4513692,-;init: [SHUTDOWN_SPEED]:Got shutdown_command 'reboot,bpfloader-failed' Calling HandlePowerctlMessage()
+14,5572,4514171,-;init: [SHUTDOWN_SPEED]:HandlePowerctlMessage before DoReboot enter
+14,5573,4514178,-;init: [SHUTDOWN_SPEED]:Reboot start, reason: reboot,bpfloader-failed, reboot_target: bpfloader-failed
+14,5585,4516320,-;init: Starting RebootMonitorThread
+14,5586,4516398,-;init: RebootMonitorThread started for 300s
+14,5595,4519503,-;init: starting service 'rebootdetectcapture'...
+14,5597,4520588,-;init: ... started service 'rebootdetectcapture' has pid 1039
+14,5752,4578177,-;init: Service 'rebootdetectcapture' (pid 1039) exited with status 0 oneshot service took 0.058000 seconds in background
+14,5753,4578187,-;init: Sending SIGKILL to service 'rebootdetectcapture' (pid 1039) process group...
+14,5928,5314914,-;init: Shutdown service: rebootdetectcapture

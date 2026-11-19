@@ -1,0 +1,420 @@
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -163,6 +163,8 @@
+ 
+ 	ARG_PTR_TO_CTX,		/* pointer to context */
+ 	ARG_ANYTHING,		/* any (initialized) argument is ok */
++	ARG_CONST_RINGBUF_SIZE,
++	ARG_PTR_TO_RINGBUF_RECORD,
+ };
+ 
+ /* type of values returned from helper functions */
+@@ -171,6 +173,7 @@
+ 	RET_VOID,			/* function doesn't return anything */
+ 	RET_PTR_TO_MAP_VALUE,		/* returns a pointer to map elem value */
+ 	RET_PTR_TO_MAP_VALUE_OR_NULL,	/* returns a pointer to map elem value or NULL */
++	RET_PTR_TO_RINGBUF_RECORD_OR_NULL,
+ };
+ 
+ /* eBPF function prototype used by verifier to allow BPF_CALLs from eBPF programs
+@@ -221,6 +224,8 @@
+ 	PTR_TO_PACKET_META,	 /* skb->data - meta_len */
+ 	PTR_TO_PACKET,		 /* reg points to skb->data */
+ 	PTR_TO_PACKET_END,	 /* skb->data + headlen */
++	PTR_TO_RINGBUF_RECORD,
++	PTR_TO_RINGBUF_RECORD_OR_NULL,
+ };
+ 
+ /* The information passed from prog-specific *_is_valid_access
+@@ -829,6 +834,9 @@
+ extern const struct bpf_func_proto bpf_map_lookup_elem_proto;
+ extern const struct bpf_func_proto bpf_ringbuf_output_proto;
+ extern const struct bpf_func_proto bpf_ringbuf_query_proto;
++extern const struct bpf_func_proto bpf_ringbuf_reserve_proto;
++extern const struct bpf_func_proto bpf_ringbuf_submit_proto;
++extern const struct bpf_func_proto bpf_ringbuf_discard_proto;
+ extern const struct bpf_func_proto bpf_map_update_elem_proto;
+ extern const struct bpf_func_proto bpf_map_delete_elem_proto;
+ 
+--- a/include/linux/bpf_verifier.h
++++ b/include/linux/bpf_verifier.h
+@@ -46,6 +46,9 @@
+ 	union {
+ 		/* valid when type == PTR_TO_PACKET */
+ 		u16 range;
++
++		/* Valid for ringbuf record pointers. */
++		u32 ringbuf_size;
+ 
+ 		/* valid when type == CONST_PTR_TO_MAP | PTR_TO_MAP_VALUE |
+ 		 *   PTR_TO_MAP_VALUE_OR_NULL
+--- a/kernel/bpf/ringbuf.c
++++ b/kernel/bpf/ringbuf.c
+@@ -399,6 +399,29 @@
+ 	return (void *)hdr + BPF_RINGBUF_HDR_SZ;
+ }
+ 
++BPF_CALL_3(bpf_ringbuf_reserve, struct bpf_map *, map, u64, size, u64, flags)
++{
++	struct bpf_ringbuf_map *rb_map;
++	void *sample;
++
++	if (unlikely(flags))
++		return 0;
++
++	rb_map = container_of(map, struct bpf_ringbuf_map, map);
++	sample = __bpf_ringbuf_reserve(rb_map->rb, size);
++	if (sample)
++		memset(sample, 0, size);
++	return (unsigned long)sample;
++}
++
++const struct bpf_func_proto bpf_ringbuf_reserve_proto = {
++	.func		= bpf_ringbuf_reserve,
++	.ret_type	= RET_PTR_TO_RINGBUF_RECORD_OR_NULL,
++	.arg1_type	= ARG_CONST_MAP_PTR,
++	.arg2_type	= ARG_CONST_RINGBUF_SIZE,
++	.arg3_type	= ARG_ANYTHING,
++};
++
+ static void bpf_ringbuf_commit(void *sample, u64 flags, bool discard)
+ {
+ 	unsigned long rec_pos, cons_pos;
+@@ -426,6 +449,32 @@
+ 	else if (cons_pos == rec_pos && !(flags & BPF_RB_NO_WAKEUP))
+ 		irq_work_queue(&rb->work);
+ }
++
++BPF_CALL_2(bpf_ringbuf_submit, void *, sample, u64, flags)
++{
++	bpf_ringbuf_commit(sample, flags, false /* discard */);
++	return 0;
++}
++
++const struct bpf_func_proto bpf_ringbuf_submit_proto = {
++	.func		= bpf_ringbuf_submit,
++	.ret_type	= RET_VOID,
++	.arg1_type	= ARG_PTR_TO_RINGBUF_RECORD,
++	.arg2_type	= ARG_ANYTHING,
++};
++
++BPF_CALL_2(bpf_ringbuf_discard, void *, sample, u64, flags)
++{
++	bpf_ringbuf_commit(sample, flags, true /* discard */);
++	return 0;
++}
++
++const struct bpf_func_proto bpf_ringbuf_discard_proto = {
++	.func		= bpf_ringbuf_discard,
++	.ret_type	= RET_VOID,
++	.arg1_type	= ARG_PTR_TO_RINGBUF_RECORD,
++	.arg2_type	= ARG_ANYTHING,
++};
+ 
+ BPF_CALL_4(bpf_ringbuf_output, struct bpf_map *, map, void *, data, u64, size,
+ 	   u64, flags)
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -4924,6 +4924,12 @@
+ cg_skb_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
+ {
+ 	switch (func_id) {
++	case BPF_FUNC_ringbuf_reserve:
++		return &bpf_ringbuf_reserve_proto;
++	case BPF_FUNC_ringbuf_submit:
++		return &bpf_ringbuf_submit_proto;
++	case BPF_FUNC_ringbuf_discard:
++		return &bpf_ringbuf_discard_proto;
+ 	case BPF_FUNC_ringbuf_output:
+ 		return &bpf_ringbuf_output_proto;
+ 	case BPF_FUNC_ringbuf_query:
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -189,6 +189,8 @@
+ 	int regno;
+ 	int access_size;
+ 	u64 msize_max_value;
++	u32 ringbuf_size;
++	u32 ringbuf_ref_id;
+ };
+ 
+ static DEFINE_MUTEX(bpf_verifier_lock);
+@@ -247,6 +249,13 @@
+ {
+ 	return type == PTR_TO_PACKET ||
+ 	       type == PTR_TO_PACKET_META;
++}
++
++
++static bool is_ringbuf_pointer(enum bpf_reg_type type)
++{
++	return type == PTR_TO_RINGBUF_RECORD ||
++	       type == PTR_TO_RINGBUF_RECORD_OR_NULL;
+ }
+ 
+ /* string representation of 'enum bpf_reg_type' */
+@@ -257,6 +266,8 @@
+ 	[CONST_PTR_TO_MAP]	= "map_ptr",
+ 	[PTR_TO_MAP_VALUE]	= "map_value",
+ 	[PTR_TO_MAP_VALUE_OR_NULL] = "map_value_or_null",
++	[PTR_TO_RINGBUF_RECORD] = "ringbuf_record",
++	[PTR_TO_RINGBUF_RECORD_OR_NULL] = "ringbuf_record_or_null",
+ 	[PTR_TO_STACK]		= "fp",
+ 	[PTR_TO_PACKET]		= "pkt",
+ 	[PTR_TO_PACKET_META]	= "pkt_meta",
+@@ -958,6 +969,8 @@
+ static bool is_spillable_regtype(enum bpf_reg_type type)
+ {
+ 	switch (type) {
++	case PTR_TO_RINGBUF_RECORD:
++	case PTR_TO_RINGBUF_RECORD_OR_NULL:
+ 	case PTR_TO_MAP_VALUE:
+ 	case PTR_TO_MAP_VALUE_OR_NULL:
+ 	case PTR_TO_STACK:
+@@ -1013,8 +1026,9 @@
+ 	/* caller checked that off % size == 0 and -MAX_BPF_STACK <= off < 0,
+ 	 * so it's aligned access and [off, off + size) are within stack limits
+ 	 */
+-	if (!env->allow_ptr_leaks &&
+-	    state->stack[spi].slot_type[0] == STACK_SPILL &&
++	if (state->stack[spi].slot_type[0] == STACK_SPILL &&
++	    (!env->allow_ptr_leaks ||
++	     is_ringbuf_pointer(state->stack[spi].spilled_ptr.type)) &&
+ 	    size != BPF_REG_SIZE) {
+ 		verbose(env, "attempt to corrupt spilled pointer on stack\n");
+ 		return -EACCES;
+@@ -1368,6 +1382,8 @@
+ static bool __is_pointer_value(bool allow_ptr_leaks,
+ 			       const struct bpf_reg_state *reg)
+ {
++	if (is_ringbuf_pointer(reg->type))
++		return true;
+ 	if (allow_ptr_leaks)
+ 		return false;
+ 
+@@ -1649,6 +1665,23 @@
+ 	err = check_ptr_alignment(env, reg, off, size, strict_alignment_once);
+ 	if (err)
+ 		return err;
++
++	if (reg->type == PTR_TO_RINGBUF_RECORD) {
++		/* Only a constant instruction offset is allowed on these pointers. */
++		if (reg->off || !tnum_equals_const(reg->var_off, 0) ||
++		    off < 0 || (u64)off + size > reg->ringbuf_size) {
++			verbose(env, "ringbuf record access outside reservation\n");
++			return -EACCES;
++		}
++		if (t == BPF_WRITE && value_regno >= 0 &&
++		    regs[value_regno].type != SCALAR_VALUE) {
++			verbose(env, "cannot write a pointer into a ringbuf record\n");
++			return -EACCES;
++		}
++		if (t == BPF_READ && value_regno >= 0)
++			mark_reg_unknown(env, regs, value_regno);
++		return 0;
++	}
+ 
+ 	/* for access checks, reg->off is just part of off */
+ 	off += reg->off;
+@@ -1980,6 +2013,26 @@
+ 	err = check_reg_arg(env, regno, SRC_OP);
+ 	if (err)
+ 		return err;
++
++	if (arg_type == ARG_CONST_RINGBUF_SIZE) {
++		if (type != SCALAR_VALUE || !tnum_is_const(reg->var_off) ||
++		    reg->var_off.value > BPF_MAX_VAR_SIZ)
++			return -EACCES;
++		meta->ringbuf_size = reg->var_off.value;
++		return 0;
++	}
++
++	if (arg_type == ARG_PTR_TO_RINGBUF_RECORD) {
++		if (type != PTR_TO_RINGBUF_RECORD || !reg->id || reg->off ||
++		    !tnum_equals_const(reg->var_off, 0))
++			return -EACCES;
++		meta->ringbuf_ref_id = reg->id;
++		return 0;
++	}
++
++	/* Ring records are not arguments to generic helpers. */
++	if (is_ringbuf_pointer(type))
++		return -EACCES;
+ 
+ 	if (arg_type == ARG_ANYTHING) {
+ 		if (is_pointer_value(env, regno)) {
+@@ -2129,6 +2182,7 @@
+ 	switch (map->map_type) {
+ 	case BPF_MAP_TYPE_RINGBUF:
+ 		if (func_id != BPF_FUNC_ringbuf_output &&
++		    func_id != BPF_FUNC_ringbuf_reserve &&
+ 		    func_id != BPF_FUNC_ringbuf_query)
+ 			goto error;
+ 		break;
+@@ -2201,6 +2255,7 @@
+ 	/* ... and second from the function itself. */
+ 	switch (func_id) {
+ 	case BPF_FUNC_ringbuf_output:
++	case BPF_FUNC_ringbuf_reserve:
+ 	case BPF_FUNC_ringbuf_query:
+ 		if (map->map_type != BPF_MAP_TYPE_RINGBUF)
+ 			goto error;
+@@ -2349,6 +2404,77 @@
+ 
+ 	for (i = 0; i <= vstate->curframe; i++)
+ 		__clear_all_pkt_pointers(env, vstate->frame[i]);
++}
++
++
++static int acquire_ringbuf_ref(struct bpf_verifier_env *env, u32 *id)
++{
++	struct bpf_verifier_state *state = env->cur_state;
++	u32 count = state->ringbuf_ref_count;
++	u32 *refs;
++
++	refs = krealloc(state->ringbuf_refs, array_size(count + 1, sizeof(*refs)),
++			GFP_KERNEL);
++	if (!refs)
++		return -ENOMEM;
++
++	*id = ++env->id_gen;
++	state->ringbuf_refs = refs;
++	refs[count] = *id;
++	state->ringbuf_ref_count++;
++	return 0;
++}
++
++static bool drop_ringbuf_ref(struct bpf_verifier_state *state, u32 id)
++{
++	u32 i;
++
++	for (i = 0; i < state->ringbuf_ref_count; i++) {
++		if (state->ringbuf_refs[i] != id)
++			continue;
++		state->ringbuf_ref_count--;
++		state->ringbuf_refs[i] = state->ringbuf_refs[state->ringbuf_ref_count];
++		return true;
++	}
++	return false;
++}
++
++static void update_ringbuf_alias(struct bpf_reg_state *reg, u32 id,
++				bool is_null, bool release)
++{
++	if (!is_ringbuf_pointer(reg->type) || reg->id != id)
++		return;
++	if (release)
++		__mark_reg_not_init(reg);
++	else if (is_null)
++		__mark_reg_const_zero(reg);
++	else
++		reg->type = PTR_TO_RINGBUF_RECORD;
++}
++
++static void update_ringbuf_aliases(struct bpf_verifier_state *state, u32 id,
++				    bool is_null, bool release)
++{
++	int j, i;
++
++	for (j = 0; j <= state->curframe; j++) {
++		struct bpf_func_state *frame = state->frame[j];
++
++		for (i = 0; i < MAX_BPF_REG; i++)
++			update_ringbuf_alias(&frame->regs[i], id, is_null, release);
++
++		for (i = 0; i < frame->allocated_stack / BPF_REG_SIZE; i++) {
++			struct bpf_stack_state *slot = &frame->stack[i];
++
++			if (slot->slot_type[0] != STACK_SPILL)
++				continue;
++			if (release && is_ringbuf_pointer(slot->spilled_ptr.type) &&
++			    slot->spilled_ptr.id == id)
++				memset(slot->slot_type, STACK_INVALID,
++				       sizeof(slot->slot_type));
++			update_ringbuf_alias(&slot->spilled_ptr, id, is_null, release);
++		}
++	}
+ }
+ 
+ static int check_ringbuf_refs_empty(struct bpf_verifier_env *env,
+@@ -2633,6 +2759,15 @@
+ 		return -EINVAL;
+ 	}
+ 
++	if (func_id == BPF_FUNC_ringbuf_submit ||
++	    func_id == BPF_FUNC_ringbuf_discard) {
++		if (!drop_ringbuf_ref(env->cur_state, meta.ringbuf_ref_id)) {
++			verbose(env, "ringbuf helper requires an owned reservation\n");
++			return -EACCES;
++		}
++		update_ringbuf_aliases(env->cur_state, meta.ringbuf_ref_id, false, true);
++	}
++
+ 	/* reset caller saved regs */
+ 	for (i = 0; i < CALLER_SAVED_REGS; i++) {
+ 		mark_reg_not_init(env, regs, caller_saved[i]);
+@@ -2645,6 +2780,18 @@
+ 		mark_reg_unknown(env, regs, BPF_REG_0);
+ 	} else if (fn->ret_type == RET_VOID) {
+ 		regs[BPF_REG_0].type = NOT_INIT;
++	} else if (fn->ret_type == RET_PTR_TO_RINGBUF_RECORD_OR_NULL) {
++		u32 id;
++
++		if (!meta.map_ptr || meta.map_ptr->map_type != BPF_MAP_TYPE_RINGBUF)
++			return -EINVAL;
++		err = acquire_ringbuf_ref(env, &id);
++		if (err)
++			return err;
++		mark_reg_known_zero(env, regs, BPF_REG_0);
++		regs[BPF_REG_0].type = PTR_TO_RINGBUF_RECORD_OR_NULL;
++		regs[BPF_REG_0].id = id;
++		regs[BPF_REG_0].ringbuf_size = meta.ringbuf_size;
+ 	} else if (fn->ret_type == RET_PTR_TO_MAP_VALUE_OR_NULL ||
+ 		   fn->ret_type == RET_PTR_TO_MAP_VALUE) {
+ 		if (fn->ret_type == RET_PTR_TO_MAP_VALUE)
+@@ -3563,6 +3710,12 @@
+ 
+ 	dst_reg = &regs[insn->dst_reg];
+ 	src_reg = NULL;
++	if (is_ringbuf_pointer(dst_reg->type) ||
++	    (BPF_SRC(insn->code) == BPF_X &&
++	     is_ringbuf_pointer(regs[insn->src_reg].type))) {
++		verbose(env, "ringbuf record pointer arithmetic is prohibited\n");
++		return -EACCES;
++	}
+ 	if (dst_reg->type != SCALAR_VALUE)
+ 		ptr_reg = dst_reg;
+ 	if (BPF_SRC(insn->code) == BPF_X) {
+@@ -4343,6 +4496,14 @@
+ 
+ 	dst_reg = &regs[insn->dst_reg];
+ 
++	if (is_ringbuf_pointer(dst_reg->type) ||
++	    (BPF_SRC(insn->code) == BPF_X && is_ringbuf_pointer(src_reg->type))) {
++		if (BPF_SRC(insn->code) != BPF_K || insn->imm ||
++		    (opcode != BPF_JEQ && opcode != BPF_JNE) ||
++		    dst_reg->type != PTR_TO_RINGBUF_RECORD_OR_NULL)
++			return -EACCES;
++	}
++
+ 	if (BPF_SRC(insn->code) == BPF_K)
+ 		pred = is_branch_taken(dst_reg, insn->imm, opcode);
+ 	else if (src_reg->type == SCALAR_VALUE &&
+@@ -4410,8 +4571,15 @@
+ 					dst_reg, insn->imm, opcode);
+ 	}
+ 
+-	/* detect if R == 0 where R is returned from bpf_map_lookup_elem() */
+-	if (BPF_SRC(insn->code) == BPF_K &&
++	if (dst_reg->type == PTR_TO_RINGBUF_RECORD_OR_NULL) {
++		u32 id = dst_reg->id;
++		bool fallthrough_null = opcode == BPF_JNE;
++
++		if (!drop_ringbuf_ref(fallthrough_null ? this_branch : other_branch, id))
++			return -EACCES;
++		update_ringbuf_aliases(this_branch, id, fallthrough_null, false);
++		update_ringbuf_aliases(other_branch, id, !fallthrough_null, false);
++	} else if (BPF_SRC(insn->code) == BPF_K &&
+ 	    insn->imm == 0 && (opcode == BPF_JEQ || opcode == BPF_JNE) &&
+ 	    dst_reg->type == PTR_TO_MAP_VALUE_OR_NULL) {
+ 		/* Mark all identical map registers in each branch as either

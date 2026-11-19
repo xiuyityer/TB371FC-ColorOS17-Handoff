@@ -1,0 +1,11 @@
+--- a/drivers/staging/qca-wifi-host-cmn/target_if/core/src/target_if_main.c
++++ b/drivers/staging/qca-wifi-host-cmn/target_if/core/src/target_if_main.c
+@@ -95,7 +95,7 @@
+ 
+ static struct target_if_ctx *g_target_if_ctx;
+ 
+-struct target_if_ctx *target_if_get_ctx()
++struct target_if_ctx *target_if_get_ctx(void)
+ {
+ 	return g_target_if_ctx;
+ }

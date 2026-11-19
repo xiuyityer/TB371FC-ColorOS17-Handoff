@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<permissions>
+    <!-- Provides SubscriptionManager for the two AIDL virtual-radio instances. -->
+    <feature name="android.hardware.telephony.subscription" />
+</permissions>

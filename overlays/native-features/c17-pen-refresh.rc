@@ -1,0 +1,9 @@
+service c17_pen_refresh /system/bin/sh /system_ext/etc/c17-port/pen-refresh-service.sh
+    user root
+    group root input shell log
+    seclabel u:r:ksu:s0
+    disabled
+    oneshot
+
+on property:sys.boot_completed=1 && property:ro.product.board=spinel
+    start c17_pen_refresh

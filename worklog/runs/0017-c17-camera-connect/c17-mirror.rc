@@ -1,0 +1,3 @@
+# C17 mirror: ODMF OPEX is mounted after post-fs-data and before zygote.
+on load-bpf-programs && property:ro.product.board=spinel
+    mount none /system_ext/etc/c17-port/odmf-surface.jar /system_ext/framework/oplusex/com.oplus.odmf/odmf.jar bind

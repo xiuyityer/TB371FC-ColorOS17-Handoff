@@ -1,0 +1,23 @@
+--- a/kernel/bpf/ringbuf.c
++++ b/kernel/bpf/ringbuf.c
+@@ -233,7 +233,7 @@
+ 
+ static void *ringbuf_map_lookup_elem(struct bpf_map *map, void *key)
+ {
+-	return ERR_PTR(-ENOTSUPP);
++	return NULL;
+ }
+ 
+ static int ringbuf_map_update_elem(struct bpf_map *map, void *key, void *value,
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -2112,6 +2112,9 @@
+ 
+ 	/* We need a two way check, first is from map perspective ... */
+ 	switch (map->map_type) {
++	case BPF_MAP_TYPE_RINGBUF:
++		/* Producer helpers require reference tracking before enablement. */
++		goto error;
+ 	case BPF_MAP_TYPE_PROG_ARRAY:
+ 		if (func_id != BPF_FUNC_tail_call)
+ 			goto error;

@@ -1,0 +1,341 @@
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -2298,7 +2298,16 @@
+ 	FN(get_netns_cookie),		\
+ 	FN(get_current_ancestor_cgroup_id),	\
+ 	FN(sk_assign),			\
+-	FN(ktime_get_boot_ns),
++	FN(ktime_get_boot_ns),	\
++	FN(seq_printf),	\
++	FN(seq_write),	\
++	FN(sk_cgroup_id),	\
++	FN(sk_ancestor_cgroup_id),	\
++	FN(ringbuf_output),	\
++	FN(ringbuf_reserve),	\
++	FN(ringbuf_submit),	\
++	FN(ringbuf_discard),	\
++	FN(ringbuf_query),
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+@@ -2311,6 +2320,25 @@
+ #undef __BPF_ENUM_FN
+ 
+ /* All flags used by eBPF helper functions, placed here. */
++
++enum {
++	BPF_RB_NO_WAKEUP		= (1ULL << 0),
++	BPF_RB_FORCE_WAKEUP	= (1ULL << 1),
++};
++
++enum {
++	BPF_RB_AVAIL_DATA = 0,
++	BPF_RB_RING_SIZE = 1,
++	BPF_RB_CONS_POS = 2,
++	BPF_RB_PROD_POS = 3,
++};
++
++enum {
++	BPF_RINGBUF_BUSY_BIT	= (1U << 31),
++	BPF_RINGBUF_DISCARD_BIT	= (1U << 30),
++	BPF_RINGBUF_HDR_SZ	= 8,
++};
++
+ 
+ /* BPF_FUNC_skb_store_bytes flags. */
+ #define BPF_F_RECOMPUTE_CSUM		(1ULL << 0)
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -2296,7 +2296,16 @@
+ 	FN(get_netns_cookie),		\
+ 	FN(get_current_ancestor_cgroup_id),	\
+ 	FN(sk_assign),			\
+-	FN(ktime_get_boot_ns),
++	FN(ktime_get_boot_ns),	\
++	FN(seq_printf),	\
++	FN(seq_write),	\
++	FN(sk_cgroup_id),	\
++	FN(sk_ancestor_cgroup_id),	\
++	FN(ringbuf_output),	\
++	FN(ringbuf_reserve),	\
++	FN(ringbuf_submit),	\
++	FN(ringbuf_discard),	\
++	FN(ringbuf_query),
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+@@ -2309,6 +2318,25 @@
+ #undef __BPF_ENUM_FN
+ 
+ /* All flags used by eBPF helper functions, placed here. */
++
++enum {
++	BPF_RB_NO_WAKEUP		= (1ULL << 0),
++	BPF_RB_FORCE_WAKEUP	= (1ULL << 1),
++};
++
++enum {
++	BPF_RB_AVAIL_DATA = 0,
++	BPF_RB_RING_SIZE = 1,
++	BPF_RB_CONS_POS = 2,
++	BPF_RB_PROD_POS = 3,
++};
++
++enum {
++	BPF_RINGBUF_BUSY_BIT	= (1U << 31),
++	BPF_RINGBUF_DISCARD_BIT	= (1U << 30),
++	BPF_RINGBUF_HDR_SZ	= 8,
++};
++
+ 
+ /* BPF_FUNC_skb_store_bytes flags. */
+ #define BPF_F_RECOMPUTE_CSUM		(1ULL << 0)
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -827,6 +827,8 @@
+ 
+ /* verifier prototypes for helper functions called from eBPF programs */
+ extern const struct bpf_func_proto bpf_map_lookup_elem_proto;
++extern const struct bpf_func_proto bpf_ringbuf_output_proto;
++extern const struct bpf_func_proto bpf_ringbuf_query_proto;
+ extern const struct bpf_func_proto bpf_map_update_elem_proto;
+ extern const struct bpf_func_proto bpf_map_delete_elem_proto;
+ 
+--- a/kernel/bpf/ringbuf.c
++++ b/kernel/bpf/ringbuf.c
+@@ -1,11 +1,12 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ /* Map and userspace consumer ABI adapted from the Android 5.10 ring buffer
+- * implementation. BPF producer helpers are integrated with the verifier
+- * separately.
++ * implementation. The copy-based output helper does not expose allocated
++ * record pointers. Zero-copy helpers require separate verifier support.
+  */
+ #include <linux/bpf.h>
+ #include <linux/capability.h>
+ #include <linux/err.h>
++#include <linux/filter.h>
+ #include <linux/irq_work.h>
+ #include <linux/slab.h>
+ #include <linux/mm.h>
+@@ -21,6 +22,7 @@
+ 	(offsetof(struct bpf_ringbuf, consumer_pos) >> PAGE_SHIFT)
+ /* consumer page and producer page */
+ #define RINGBUF_POS_PAGES 2
++#define RINGBUF_MAX_RECORD_SZ (UINT_MAX / 4)
+ 
+ /* Maximum size of ring buffer area is limited by 32-bit page offset within
+  * record header, counted in pages. Reserve 8 bits for extensibility, and take
+@@ -310,3 +312,172 @@
+ 	.map_delete_elem = ringbuf_map_delete_elem,
+ 	.map_get_next_key = ringbuf_map_get_next_key,
+ };
++
++/* Given pointer to ring buffer record metadata and struct bpf_ringbuf itself,
++ * calculate offset from record metadata to ring buffer in pages, rounded
++ * down. This page offset is stored as part of record metadata and allows to
++ * restore struct bpf_ringbuf * from record pointer. This page offset is
++ * stored at offset 4 of record metadata header.
++ */
++static size_t bpf_ringbuf_rec_pg_off(struct bpf_ringbuf *rb,
++				     struct bpf_ringbuf_hdr *hdr)
++{
++	return ((void *)hdr - (void *)rb) >> PAGE_SHIFT;
++}
++
++/* Given pointer to ring buffer record header, restore pointer to struct
++ * bpf_ringbuf itself by using page offset stored at offset 4
++ */
++static struct bpf_ringbuf *
++bpf_ringbuf_restore_from_rec(struct bpf_ringbuf_hdr *hdr)
++{
++	unsigned long addr = (unsigned long)(void *)hdr;
++	unsigned long off = (unsigned long)hdr->pg_off << PAGE_SHIFT;
++
++	return (void*)((addr & PAGE_MASK) - off);
++}
++
++static void *__bpf_ringbuf_reserve(struct bpf_ringbuf *rb, u64 size)
++{
++	unsigned long cons_pos, prod_pos, new_prod_pos, pend_pos, flags;
++	struct bpf_ringbuf_hdr *hdr;
++	u32 len, pg_off, tmp_size, hdr_len;
++
++	if (unlikely(size > RINGBUF_MAX_RECORD_SZ))
++		return NULL;
++
++	len = round_up(size + BPF_RINGBUF_HDR_SZ, 8);
++	if (len > rb->mask + 1)
++		return NULL;
++
++	cons_pos = smp_load_acquire(&rb->consumer_pos);
++
++	if (in_nmi()) {
++		if (!spin_trylock_irqsave(&rb->spinlock, flags))
++			return NULL;
++	} else {
++		spin_lock_irqsave(&rb->spinlock, flags);
++	}
++
++	pend_pos = rb->pending_pos;
++	prod_pos = rb->producer_pos;
++	new_prod_pos = prod_pos + len;
++
++	while (prod_pos - pend_pos > 0) {
++		hdr = (void *)rb->data + (pend_pos & rb->mask);
++		hdr_len = READ_ONCE(hdr->len);
++		if (hdr_len & BPF_RINGBUF_BUSY_BIT)
++			break;
++		tmp_size = hdr_len & ~BPF_RINGBUF_DISCARD_BIT;
++		tmp_size = round_up(tmp_size + BPF_RINGBUF_HDR_SZ, 8);
++		pend_pos += tmp_size;
++	}
++	rb->pending_pos = pend_pos;
++
++	/* check for out of ringbuf space:
++	 * - by ensuring producer position doesn't advance more than
++	 *   (ringbuf_size - 1) ahead
++	 * - by ensuring oldest not yet committed record until newest
++	 *   record does not span more than (ringbuf_size - 1)
++	 */
++	if (new_prod_pos - cons_pos > rb->mask ||
++	    new_prod_pos - pend_pos > rb->mask) {
++		spin_unlock_irqrestore(&rb->spinlock, flags);
++		return NULL;
++	}
++
++	hdr = (void *)rb->data + (prod_pos & rb->mask);
++	pg_off = bpf_ringbuf_rec_pg_off(rb, hdr);
++	hdr->len = size | BPF_RINGBUF_BUSY_BIT;
++	hdr->pg_off = pg_off;
++
++	/* pairs with consumer's smp_load_acquire() */
++	smp_store_release(&rb->producer_pos, new_prod_pos);
++
++	spin_unlock_irqrestore(&rb->spinlock, flags);
++
++	return (void *)hdr + BPF_RINGBUF_HDR_SZ;
++}
++
++static void bpf_ringbuf_commit(void *sample, u64 flags, bool discard)
++{
++	unsigned long rec_pos, cons_pos;
++	struct bpf_ringbuf_hdr *hdr;
++	struct bpf_ringbuf *rb;
++	u32 new_len;
++
++	hdr = sample - BPF_RINGBUF_HDR_SZ;
++	rb = bpf_ringbuf_restore_from_rec(hdr);
++	new_len = hdr->len ^ BPF_RINGBUF_BUSY_BIT;
++	if (discard)
++		new_len |= BPF_RINGBUF_DISCARD_BIT;
++
++	/* update record header with correct final size prefix */
++	xchg(&hdr->len, new_len);
++
++	/* if consumer caught up and is waiting for our record, notify about
++	 * new data availability
++	 */
++	rec_pos = (void *)hdr - (void *)rb->data;
++	cons_pos = smp_load_acquire(&rb->consumer_pos) & rb->mask;
++
++	if (flags & BPF_RB_FORCE_WAKEUP)
++		irq_work_queue(&rb->work);
++	else if (cons_pos == rec_pos && !(flags & BPF_RB_NO_WAKEUP))
++		irq_work_queue(&rb->work);
++}
++
++BPF_CALL_4(bpf_ringbuf_output, struct bpf_map *, map, void *, data, u64, size,
++	   u64, flags)
++{
++	struct bpf_ringbuf_map *rb_map;
++	void *rec;
++
++	if (unlikely(flags & ~(BPF_RB_NO_WAKEUP | BPF_RB_FORCE_WAKEUP)))
++		return -EINVAL;
++
++	rb_map = container_of(map, struct bpf_ringbuf_map, map);
++	rec = __bpf_ringbuf_reserve(rb_map->rb, size);
++	if (!rec)
++		return -EAGAIN;
++
++	memcpy(rec, data, size);
++	bpf_ringbuf_commit(rec, flags, false /* discard */);
++	return 0;
++}
++
++const struct bpf_func_proto bpf_ringbuf_output_proto = {
++	.func		= bpf_ringbuf_output,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_CONST_MAP_PTR,
++	.arg2_type	= ARG_PTR_TO_MEM,
++	.arg3_type	= ARG_CONST_SIZE_OR_ZERO,
++	.arg4_type	= ARG_ANYTHING,
++};
++
++BPF_CALL_2(bpf_ringbuf_query, struct bpf_map *, map, u64, flags)
++{
++	struct bpf_ringbuf *rb;
++
++	rb = container_of(map, struct bpf_ringbuf_map, map)->rb;
++
++	switch (flags) {
++	case BPF_RB_AVAIL_DATA:
++		return ringbuf_avail_data_sz(rb);
++	case BPF_RB_RING_SIZE:
++		return rb->mask + 1;
++	case BPF_RB_CONS_POS:
++		return smp_load_acquire(&rb->consumer_pos);
++	case BPF_RB_PROD_POS:
++		return smp_load_acquire(&rb->producer_pos);
++	default:
++		return 0;
++	}
++}
++
++const struct bpf_func_proto bpf_ringbuf_query_proto = {
++	.func		= bpf_ringbuf_query,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_CONST_MAP_PTR,
++	.arg2_type	= ARG_ANYTHING,
++};
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -2113,8 +2113,10 @@
+ 	/* We need a two way check, first is from map perspective ... */
+ 	switch (map->map_type) {
+ 	case BPF_MAP_TYPE_RINGBUF:
+-		/* Producer helpers require reference tracking before enablement. */
+-		goto error;
++		if (func_id != BPF_FUNC_ringbuf_output &&
++		    func_id != BPF_FUNC_ringbuf_query)
++			goto error;
++		break;
+ 	case BPF_MAP_TYPE_PROG_ARRAY:
+ 		if (func_id != BPF_FUNC_tail_call)
+ 			goto error;
+@@ -2183,6 +2185,11 @@
+ 
+ 	/* ... and second from the function itself. */
+ 	switch (func_id) {
++	case BPF_FUNC_ringbuf_output:
++	case BPF_FUNC_ringbuf_query:
++		if (map->map_type != BPF_MAP_TYPE_RINGBUF)
++			goto error;
++		break;
+ 	case BPF_FUNC_tail_call:
+ 		if (map->map_type != BPF_MAP_TYPE_PROG_ARRAY)
+ 			goto error;
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -4924,6 +4924,10 @@
+ cg_skb_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
+ {
+ 	switch (func_id) {
++	case BPF_FUNC_ringbuf_output:
++		return &bpf_ringbuf_output_proto;
++	case BPF_FUNC_ringbuf_query:
++		return &bpf_ringbuf_query_proto;
+ 	case BPF_FUNC_get_local_storage:
+ 		return &bpf_get_local_storage_proto;
+ 	default:

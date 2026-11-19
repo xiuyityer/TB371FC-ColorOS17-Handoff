@@ -1,0 +1,26 @@
+{
+  "state": "new_kernel_runtime_ringbuf_probes_pass",
+  "device": "DEVICE_SERIAL",
+  "target": "boot_a",
+  "sha256": "b33ba47b6ab0d47b3beb695f455e37b6c5b2bfe379cff212a2f72d2ea8d4c780",
+  "bytes": 100663296,
+  "base_boot_sha256": "1bb51df0c5064cf0b08c775b6f9c23a30b74e109a46c603a6a7c291147fc80b1",
+  "kernel_sha256": "5f9e77e8cf71b0d9a926af9ad06b22de8dc205db632bc251cec1fbecaaa1d21c",
+  "rebuilt_erofs_sha256": "e41be16a2c81eb70eaaeebc9d4abcb74cc0422fa43b8b825d036ba1cb3b07135",
+  "kernel_su_sha256": "9f0d7d8073979a723773c428c52f75769a5643bdf308eda77ab1a904bfa5a2bf",
+  "dtb_sha256": "ddc85af65ee39321a6f67b76ad2255551e005e1cba769990f6bc4c4fe70bc3fb",
+  "bootlog_window": {
+    "offset": 83886080,
+    "size": 4194304,
+    "token": "0003-c17-bootlog-20261117-r2"
+  },
+  "hardware_test_pass": false,
+  "device_written": true,
+  "temporary_boot_result": "unknown command",
+  "ringbuf_output_pass": true,
+  "ringbuf_submit_pass": true,
+  "ringbuf_discard_pass": true,
+  "kernel_runtime": "4.19.325-perf+ #2",
+  "ksu_root_pass": true,
+  "netd_ring_maps_pinned": true
+}

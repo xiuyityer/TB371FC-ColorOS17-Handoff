@@ -1,0 +1,14 @@
+[
+  {
+    "name": "tfa98xx_QS.cnt",
+    "size": 26245,
+    "offset": 31771536,
+    "sha256": "a3f641609cbb617ea2c3169e5a9edc6c04f89a342e99fd96dacc44f216cdfa81"
+  },
+  {
+    "name": "tfa98xx_YC.cnt",
+    "size": 26245,
+    "offset": 31797792,
+    "sha256": "8e7d4a1c4d9587382150cd949e202100d64e17447719a6b6efdb7611ffb952f5"
+  }
+]

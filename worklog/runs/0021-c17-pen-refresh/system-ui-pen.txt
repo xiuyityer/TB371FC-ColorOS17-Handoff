@@ -1,0 +1,8 @@
+[942102] VOTE_120 reason=detect_606 from=144.00002 native_before=4 saved_min=null saved_peak=144.0
+[945467] RESTORE reason=pen_left rc=0 detection_notifications=31
+[19884] READY version=0.4.1 idle=blocking active_check_ms=250 leave_ms=2200
+[351835] VOTE_120 reason=real_pen_input from=120.00001 native_before=4 saved_min=null saved_peak=144.00002
+[355699] RESTORE reason=pen_left rc=0 detection_notifications=0
+[24129] READY version=0.4.1 idle=blocking active_check_ms=250 leave_ms=2200
+[64674] VOTE_120 reason=detect_606 from=144.00002 native_before=4 saved_min=null saved_peak=144.00002
+[84627] RESTORE reason=pen_left rc=0 detection_notifications=35

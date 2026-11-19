@@ -1,0 +1,20 @@
+# C17 bring-up attribution and offline KernelSU manager delivery.
+service c17_postfs_capture /system/bin/sh /system_ext/etc/c17-port/capture.sh post-fs-data
+    user root
+    group root shell log
+    seclabel u:r:ksu:s0
+    disabled
+    oneshot
+
+service c17_boot_capture /system/bin/sh /system_ext/etc/c17-port/capture.sh boot-completed
+    user root
+    group root shell log
+    seclabel u:r:ksu:s0
+    disabled
+    oneshot
+
+on post-fs-data
+    start c17_postfs_capture
+
+on property:sys.boot_completed=1 && property:ro.product.board=spinel
+    start c17_boot_capture

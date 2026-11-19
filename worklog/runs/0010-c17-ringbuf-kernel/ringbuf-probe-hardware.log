@@ -1,0 +1,9 @@
+push c17-port/worklog/runs/0010-c17-ringbuf-kernel/probe-ringbuf-arm64 /data/local/tmp/c17-ringbuf-probe
+c17-port/worklog/runs/0010-c17-ringbuf-kernel/probe-ringbuf-arm64: 1 file pushed, 0 skipped. 250.9 MB/s (2222192 bytes in 0.008s)
+rc=0
+shell chmod 0700 /data/local/tmp/c17-ringbuf-probe
+rc=0
+shell su -c '/data/local/tmp/c17-ringbuf-probe --events'
+error: "/data/local/tmp/c17-ringbuf-probe": executable's TLS segment is underaligned: alignment is 8 (skew 0), needs to be at least 64 for ARM64 Bionic
+Aborted 
+rc=134

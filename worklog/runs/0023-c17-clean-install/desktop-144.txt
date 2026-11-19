@@ -1,0 +1,5 @@
+  mCurrentFocus=Window{b800730 u0 com.android.launcher/com.android.launcher.Launcher}
+Active mode for display 0:
+  Mode ID: 2, Resolution: 1840x2944, Refresh Rate: 144.00 Hz
+running
+4

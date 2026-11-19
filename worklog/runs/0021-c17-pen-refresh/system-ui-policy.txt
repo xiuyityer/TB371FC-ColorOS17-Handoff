@@ -1,0 +1,2 @@
+11-18 21:32:21.015  1503  2317 D RefreshRate: resetUsrOverrideRefreshRateBySettingMode settingModeIndex:3 activityName: com.android.settings.Settings$MoreSystemSettingsActivity activityData: PreferredRefreshRateData{mPreferredRefreshRateId=[3, 2, 2, 4, 3],isAnimBoost=true}
+11-18 21:33:07.388  1503  2925 D RefreshRate: resetUsrOverrideRefreshRateBySettingMode settingModeIndex:3 activityName: com.oplus.settings.OplusSettingsActivity$DeviceInfoSettingsActivity activityData: PreferredRefreshRateData{mPreferredRefreshRateId=[3, 2, 2, 4, 3],isAnimBoost=true}

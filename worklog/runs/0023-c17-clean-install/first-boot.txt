@@ -1,0 +1,7 @@
+slot=_a
+boot=1
+animation=stopped
+pen_service=running
+provisioned=1
+user_setup=1
+marker-absent

@@ -1,0 +1,23 @@
+4,1998,1589058,-;erofs: loading out-of-tree module taints kernel.
+6,2154,1752997,-;erofs: (device dm-0): mounted with opts: , root inode @ nid 37.
+6,2158,1753669,-;erofs: (device dm-1): mounted with opts: , root inode @ nid 37.
+6,2161,1753925,-;erofs: (device dm-2): mounted with opts: , root inode @ nid 41.
+6,2170,1756723,-;erofs: (device dm-5): mounted with opts: , root inode @ nid 37.
+6,2173,1756971,-;erofs: (device dm-6): mounted with opts: , root inode @ nid 37.
+6,2176,1757267,-;erofs: (device dm-7): mounted with opts: , root inode @ nid 39.
+6,2179,1757570,-;erofs: (device dm-8): mounted with opts: , root inode @ nid 38.
+6,2182,1757809,-;erofs: (device dm-9): mounted with opts: , root inode @ nid 38.
+6,2185,1758018,-;erofs: (device dm-10): mounted with opts: , root inode @ nid 38.
+6,2188,1758217,-;erofs: (device dm-11): mounted with opts: , root inode @ nid 38.
+6,2191,1758459,-;erofs: (device dm-12): mounted with opts: , root inode @ nid 38.
+14,2200,1818264,-;init: Opening SELinux policy
+14,2202,1819061,-;init: /system/etc/selinux/plat_sepolicy_and_mapping.sha256 and /odm/etc/selinux/precompiled_sepolicy.plat_sepolicy_and_mapping.sha256 differ
+14,2203,1819066,-;init: Compiling SELinux policy
+14,2208,1821656,-;init: Missing /system/etc/selinux/plat_sepolicy_genfs_202404.cil; skipping
+14,2221,2634240,-;init: Loading SELinux policy
+6,2224,2668240,-;SELinux:  policy capability network_peer_controls=1
+6,2225,2668245,-;SELinux:  policy capability open_perms=1
+6,2226,2668248,-;SELinux:  policy capability extended_socket_class=1
+6,2227,2668250,-;SELinux:  policy capability always_check_network=0
+6,2228,2668251,-;SELinux:  policy capability cgroup_seclabel=0
+6,2229,2668253,-;SELinux:  policy capability nnp_nosuid_transition=1
